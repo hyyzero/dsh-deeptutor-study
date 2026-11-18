@@ -16,9 +16,12 @@
  * notebook itself, grouped by knowledge point, with the reviews due today and
  * the two actions the brief allows.
  */
+
 window.__ModuleLoader__.load({
-  id: 'dsh-deeptutor-study/wrongbook',
+  id: 'dsh-deeptutor-study',
   factory(require) {
+    const wrongbook = (function (require) {
+
     const React = require('react')
     const h = React.createElement
 
@@ -1010,18 +1013,10 @@ window.__ModuleLoader__.load({
         })
       },
     }
-  },
-})
+    })(require)
 
-/**
- * Client half of the DeepTutor knowledge-base manager.
- *
- * Registers one left-sidebar entry and its global `main` panel: every knowledge
- * base with its document count, plus create / rename / delete / set-default.
- */
-window.__ModuleLoader__.load({
-  id: 'dsh-deeptutor-study/knowledge',
-  factory(require) {
+    const knowledge = (function (require) {
+
     const React = require('react')
     const h = React.createElement
 
@@ -1855,6 +1850,15 @@ window.__ModuleLoader__.load({
             /* layout is gone */
           }
         })
+      },
+    }
+    })(require)
+
+    return {
+      inject: ['slots'],
+      apply(ctx) {
+        wrongbook.apply(ctx)
+        knowledge.apply(ctx)
       },
     }
   },

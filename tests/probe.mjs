@@ -20,8 +20,8 @@ globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({}),
 
 await import('../client/client.js')
 
-check('注册了两个模块', loaded.length === 2, `got ${loaded.length}`)
-check('模块 id 唯一', loaded[0].id !== loaded[1].id)
+check('注册了一个模块', loaded.length === 1, `got ${loaded.length}`)
+check('模块 id 与包名一致', loaded[0].id === 'dsh-deeptutor-study', loaded[0].id)
 
 function texts(node, out = []) {
   if (node === null || node === undefined || node === false) return out
@@ -41,7 +41,7 @@ function makeReact() {
   }
 }
 
-function renderOne(module) {
+function renderAll(module) {
   const React = makeReact()
   const plugin = module.factory(() => React)
   const registrations = []
@@ -52,43 +52,27 @@ function renderOne(module) {
       return undefined
     },
     effect(cb) { return cb() },
-    slots: { inject(name, cb) { cb(); return () => {} }, register(options, component) { registrations.push({ options, component }); return () => {} } },
+    slots: {
+      inject(name, cb) { cb(); return () => {} },
+      register(options, component) { registrations.push({ options, component }); return () => {} },
+    },
   })
-  const main = registrations.find((row) => row.options.name === 'main')
-  const side = registrations.find((row) => row.options.name === 'sidebar.panellist')
-  check(`${module.id} 注册了主面板`, main !== undefined)
-  check(`${module.id} 注册了侧栏项`, side !== undefined)
-  return { tree: main ? main.component() : null, side }
+  return registrations
 }
 
 for (const module of loaded) {
-  const { tree, side } = renderOne(module)
-  const all = texts(tree)
-  check(`${module.id} 渲染出内容`, all.length > 3, `${all.length} nodes`)
-  if (side) check(`${module.id} 侧栏有中文标签`, typeof side.options.label === 'function' && side.options.label().length > 0)
+  const registrations = renderAll(module)
+  const mains = registrations.filter((row) => row.options.name === 'main')
+  const sides = registrations.filter((row) => row.options.name === 'sidebar.panellist')
+  check(`${module.id} 注册两个主面板`, mains.length === 2, `got ${mains.length}`)
+  check(`${module.id} 注册两个侧栏项`, sides.length === 2, `got ${sides.length}`)
+  check(`${module.id} 侧栏 key 互不相同`, new Set(sides.map((r) => r.options.id)).size === sides.length)
+
+  const allText = mains.map((row) => texts(row.component()).join(' ')).join(' --- ')
+  check('错题本页面标题正确', allText.includes('错题本'))
+  check('知识库页面标题正确', allText.includes('知识库管理'))
+  check('知识库页面有新建入口', allText.includes('新建知识库'))
 }
-
-const allText = loaded
-  .map((module) => {
-    const React = makeReact()
-    const plugin = module.factory(() => React)
-    const regs = []
-    plugin.apply({
-      get(name) {
-        if (name === 'locale') return { getSnapshot: () => ({ active: 'zh' }), register() {}, bind: () => (key) => key }
-        if (name === 'layout') return { panelInfo: { getSnapshot: () => ({ activePanelId: module.id }), subscribe: () => () => {} }, selectPanel() {} }
-        return undefined
-      },
-      effect(cb) { return cb() },
-      slots: { inject(name, cb) { cb(); return () => {} }, register(o, c) { regs.push({ options: o, component: c }); return () => {} } },
-    })
-    return texts(regs.find((r) => r.options.name === 'main').component()).join(' ')
-  })
-  .join(' --- ')
-
-check('错题本页面标题正确', allText.includes('错题本'))
-check('知识库页面标题正确', allText.includes('知识库管理'))
-check('知识库页面有新建入口', allText.includes('新建知识库'))
 
 console.log(failures.length === 0 ? '\nALL PASS' : `\n${failures.length} FAILED`)
 process.exit(failures.length === 0 ? 0 : 1)
