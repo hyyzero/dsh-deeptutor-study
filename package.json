@@ -1,0 +1,80 @@
+{
+  "name": "dsh-deeptutor-study",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "把 DeepTutor 变成 DSH 的学习模式：深度讲解、出题判分、写书、知识库与错题本，装上即用。",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "deeptutor",
+    "learning",
+    "education",
+    "tutor",
+    "rag"
+  ],
+  "license": "MIT",
+  "author": "hyyzero",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hyyzero/dsh-deeptutor-study.git"
+  },
+  "homepage": "https://github.com/hyyzero/dsh-deeptutor-study#readme",
+  "bugs": {
+    "url": "https://github.com/hyyzero/dsh-deeptutor-study/issues"
+  },
+  "engines": {
+    "dsh": ">=0.1.7-rc.1"
+  },
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./client/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./scripts/*": "./scripts/*",
+    "./skills/*": "./skills/*",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "lib",
+    "client",
+    "skills",
+    "scripts",
+    "examples",
+    "locale",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "dependencies": {
+    "dsh-deeptutor": "^0.3.4"
+  },
+  "peerDependencies": {
+    "@changfenhuang/dsh-genui": "^0.16.0"
+  },
+  "peerDependenciesMeta": {
+    "@changfenhuang/dsh-genui": {
+      "optional": true
+    }
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    }
+  },
+  "scripts": {
+    "probe": "node tests/probe.mjs",
+    "check": "node --check lib/index.js && node --check client/client.js && node tests/probe.mjs"
+  }
+}

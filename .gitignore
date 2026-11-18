@@ -1,0 +1,7 @@
+node_modules/
+runtime/
+models/
+deeptutor-home/
+*.tgz
+.DS_Store
+Thumbs.db

@@ -1,0 +1,218 @@
+- insert:
+  - id: dsh-deeptutor-study
+    name: dsh-deeptutor-study
+  - id: preset-study
+    name: '@deepseek-ai/dsh-agent-preset'
+    config:
+      id: study
+      name: 学习模式
+      description: 学习与知识库模式：额外挂载 DeepTutor 辅导工具（讲解/出题/研究/知识库/写书/画图），并启用错题本。
+      order: 5
+      plugins:
+      - id: persona
+        name: '@deepseek-ai/dsh-persona'
+        config:
+          prefix: You are a learning assistant powered by the {{model}} model.
+          suffix: '当前处于「学习模式」。学习类请求优先使用 deeptutor_* 工具完成：
+
+            deeptutor_run 支持 deep_solve（深度讲解）、deep_question（出题）、deep_research（研究）、mastery_path（学习路径）、visualize（可视化）、chat。
+
+            deeptutor_kb 在生成学习内容或出题前，先检索用户的知识库。
+
+            deeptutor_note 只在用户明确要求保存或归档笔记时使用。
+
+            deeptutor_cli 用于其他 DeepTutor 命令，用 --help 自行发现用法。
+
+            重要限制：所有 deeptutor 工具共享同一个 DeepTutor 工作区锁，必须串行调用，绝不要在同一轮里并发发起多个。
+
+            交互协议（必须遵守 study-flow 技能）：
+
+            - 学习类请求先用 ask_user_question 给出动作菜单（讲解/出题/学习路径/研究/知识库/写书/画图），再用选项询问题量与难度，不要让用户手打命令或参数。
+
+            - 出题一律渲染成 GenUI quiz 卡片：每题一个 radio，全部题共用一个 submit，选项由你生成，判分在本地完成。
+
+            - 测验结果用 stat / progress / table / callout 卡片汇报，不要把答案直接贴在题目旁边。
+
+            - 不要生成 md 或 html 文件来承载题目与讲解，除非用户明确要求导出。
+
+            DSH 的文件、命令、搜索等工具照常可用。
+
+            画图 / 动画（入口：学习菜单里的「画个图 / 看动画」，或用户说「画个图」「做个动画」「让我看看…的过程」「动态演示」）：
+
+            只想知道形状/关系/趋势就用 GenUI 内联图表（plot 画函数、echart 画复杂图、svg 画几何、mermaid 画关系），不要落文件。
+
+            想停在第 N 步看、想拖参数、想回放，才复制 .dsh-study/env.json 里 vizTemplate 指向的模板 改 frames 数组，存到 工作区的 viz\<中文主题>.html。
+
+            该 HTML 跑在 null-origin 沙箱：必须单文件自包含，禁止 CDN/外链字体/localStorage/父页面访问；必须能单步、能重置。
+
+            不要把代码贴给用户，不要用 deeptutor_run(visualize) 画简单图（多阶段 30-90 秒，更慢）。
+
+            生成一本书（入口：学习菜单里的「写一本书」，或用户说「写一本书 / 小册子 / 教材」「把知识库整理成书」）：
+
+            参数用 ask_user_question 分步问（主题 / 篇幅 brief-standard-deep / 是否挂知识库），命令全部由你在后台执行，不要让用户自己跑。
+
+            用 bash 调 .dsh-study/env.json 里的 bookctl（解释器用同一文件里的 python），
+
+            五步 create -> spine -> reorder -> compile -> export，详见 study-flow 技能的「流程五」。
+
+            create 拿到提案后必须用 table + ask_user_question 让用户点选确认，不要自动往下跑；
+
+            spine 之后必须 reorder（模型常把章节前置关系弄反）；compile 必须 run_in_background 且一次只编几页（每页 90-120 秒）。
+
+
+            路径不要在提示词里假设：插件启动时会把 pluginRoot / python / bookctl / vizTemplate 写进工作区的 .dsh-study/env.json，需要用到脚本或模板时先读那个文件。
+
+            '
+      - id: agent-instructions
+        name: '@deepseek-ai/dsh-agent-instructions'
+        config:
+          maxBytes: 65536
+      - id: tool-bash
+        name: '@deepseek-ai/dsh-tool-bash'
+        disabled:
+        - js
+        - process.platform === 'win32'
+      - id: tool-pwsh
+        name: '@deepseek-ai/dsh-tool-pwsh'
+        disabled:
+        - js
+        - process.platform !== 'win32'
+      - id: tool-fs
+        name: '@deepseek-ai/dsh-tool-fs'
+      - id: tool-fs-search
+        name: '@deepseek-ai/dsh-tool-fs-search'
+        config:
+          sampleOverCapGlobResults: false
+      - id: tool-jobs
+        name: '@deepseek-ai/dsh-tool-jobs'
+      - id: skill-filesystem
+        name: '@deepseek-ai/dsh-skill-filesystem'
+      - id: tool-skill
+        name: '@deepseek-ai/dsh-tool-skill'
+      - id: command-goal
+        name: '@deepseek-ai/dsh-command-goal'
+      - id: tool-goal
+        name: '@deepseek-ai/dsh-tool-goal'
+      - id: planning
+        name: cordis:group
+        group: true
+        isolate:
+          planMode: true
+        config:
+        - id: plan-mode
+          name: '@deepseek-ai/dsh-plan-mode'
+          config:
+            section: 'You are in plan mode. Stay in plan mode until exit_plan_mode succeeds or the user switches the session mode. Imperative language to implement changes means plan the implementation,
+              not execute it. A user''s conversational agreement 鈥?including an answer confirming something you asked 鈥?approves nothing and does not end plan mode; fold the confirmed decision into the
+              plan and submit it through exit_plan_mode.
+
+
+              Explore first. Use non-mutating reads, searches, static analysis, and checks to ground the plan in the actual repository. Do not edit or write files, change configuration, run formatters or
+              code generation that rewrites tracked files, commit, or otherwise carry out the plan. Prefer existing functions and patterns over new machinery.
+
+
+              The tool catalog stays the same across modes for request-cache stability. These plan-mode rules override any later tool description or guidance that suggests using mutation tools; those tools
+              remain listed to keep the tool catalog unchanged. Do not use todo_write to track this planning phase: it tracks implementation after an approved plan, while the plan itself belongs in exit_plan_mode.
+
+
+              Resolve discoverable facts by inspection. Use ask_user_question only for user-owned choices or material ambiguity that inspection cannot answer. Do not ask the user where code lives or how
+              current behavior works when you can find out.
+
+
+              Make the plan decision-complete: state the goal and success criteria; group implementation changes by subsystem; identify public API, schema, and data-flow changes; cover edge cases, failure
+              modes, tests, acceptance criteria, and explicit assumptions. Keep it concise enough to review but detailed enough that another engineer can implement it without making design decisions.
+
+
+              When ready, call exit_plan_mode with the complete plan markdown, starting with a # title. Make exit_plan_mode the only and final tool call in that assistant response: it presents the plan
+              for approval, and implementation begins only in a later step after approval. Do not paste the final plan as a plain reply or ask "should I proceed?" through prose or ask_user_question. If
+              review rejects it, incorporate the feedback and present again. If the review channel is unavailable or aborted, stay in plan mode and ask the user to switch modes manually; do not proceed
+              with implementation.
+
+              '
+      - id: compaction
+        name: cordis:group
+        group: true
+        isolate:
+          compaction: true
+          toolResultPruner: true
+        config:
+        - id: compaction-basic
+          name: '@deepseek-ai/dsh-compaction-basic'
+        - id: command-compact
+          name: '@deepseek-ai/dsh-command-compact'
+        - id: tool-result-pruner
+          name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+          config:
+            thresholdChars: 8192
+            headChars: 4096
+            tailChars: 1024
+      - id: delegation
+        name: cordis:group
+        group: true
+        isolate:
+          workflowEngine: true
+        config:
+        - id: tool-subagent-control
+          name: '@deepseek-ai/dsh-tool-subagent-control'
+        - id: tool-subagent-list-agents
+          name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'
+          disabled: true
+        - id: tool-subagent
+          name: '@deepseek-ai/dsh-tool-subagent'
+          config:
+            provider: spawn
+            toolName: subagent
+            modelSelectionSettings: true
+            backgroundMode: continuable
+        - id: tool-subagent-fork
+          name: '@deepseek-ai/dsh-tool-subagent'
+          config:
+            provider: fork
+            toolName: subagent_fork
+            backgroundMode: continuable
+        - id: tool-subagent-codex
+          name: '@deepseek-ai/dsh-tool-subagent'
+          disabled: true
+          config:
+            provider: codex
+            toolName: subagent_codex
+            backgroundMode: one-shot
+            maxDepth: provider-managed
+        - id: tool-subagent-claude-code
+          name: '@deepseek-ai/dsh-tool-subagent'
+          disabled: true
+          config:
+            provider: claude-code
+            toolName: subagent_claude_code
+            backgroundMode: one-shot
+            maxDepth: provider-managed
+        - id: workflow-ptc
+          name: '@deepseek-ai/dsh-workflow-ptc'
+          config:
+            provider: spawn
+        - id: tool-workflow
+          name: '@deepseek-ai/dsh-tool-workflow'
+        - id: tool-ralph
+          name: '@deepseek-ai/dsh-tool-ralph'
+          disabled: true
+          config:
+            subagentProvider: spawn
+            maxRounds: 64
+      - id: tool-ask-user
+        name: '@deepseek-ai/dsh-tool-ask-user'
+      - id: tool-todo
+        name: '@deepseek-ai/dsh-tool-todo'
+        config:
+          allowParallelInProgress: true
+      - id: tool-web
+        name: '@deepseek-ai/dsh-tool-web'
+        config:
+          fetch: true
+          searchTimeoutMs: 60000
+      - id: present
+        name: '@deepseek-ai/dsh-tool-present'
+      - id: tool-plugin-manager
+        name: '@deepseek-ai/dsh-plugin-manager/tools'
+        disabled: true
+      - id: deeptutor
+        name: dsh-deeptutor

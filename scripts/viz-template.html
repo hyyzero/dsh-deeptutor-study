@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__TITLE__</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1a1a1a; --muted:#6b7280; --line:#e5e7eb;
+    --accent:#2563eb; --good:#16a34a; --warn:#d97706; --bad:#dc2626;
+    --panel:#f9fafb;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f1115; --fg:#e6e6e6; --muted:#9ca3af; --line:#2a2f3a;
+           --accent:#60a5fa; --good:#4ade80; --warn:#fbbf24; --bad:#f87171;
+           --panel:#161a22; }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--fg);
+       font:14px/1.6 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+       display:flex;flex-direction:column;gap:12px;padding:16px}
+  h1{font-size:16px;margin:0;font-weight:600}
+  .sub{color:var(--muted);font-size:12px;margin:0}
+  .stage{flex:1;min-height:240px;background:var(--panel);border:1px solid var(--line);
+         border-radius:10px;position:relative;overflow:hidden}
+  canvas{display:block;width:100%;height:100%}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  button{font:inherit;padding:6px 12px;border-radius:8px;border:1px solid var(--line);
+         background:var(--panel);color:var(--fg);cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button:disabled{opacity:.45;cursor:default}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px}
+  input[type=range]{width:120px}
+  .status{font-size:13px;color:var(--fg);min-height:20px}
+  .counter{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+  /* 静态兜底：脚本被禁用时仍能看到第一帧，不会白屏 */
+  .static{position:absolute;inset:0;display:flex;align-items:flex-end;gap:12px;
+          padding:24px 24px 48px}
+  .static .sb{flex:1;position:relative;background:var(--accent);border-radius:6px 6px 0 0;
+              height:calc(var(--h) * 100%)}
+  .static .sb span{position:absolute;top:-20px;left:0;right:0;text-align:center;
+                   font:600 13px system-ui,sans-serif;color:var(--muted)}
+</style>
+</head>
+<body>
+<h1>__TITLE__</h1>
+<p class="sub">__SUBTITLE__</p>
+
+<div class="stage">
+  <canvas id="cv" aria-label="动画画布"></canvas>
+  <!-- 静态兜底：把「第一帧」用纯 HTML 画一遍。脚本一跑起来就会 remove 掉。 -->
+  <div class="static" id="static" aria-hidden="true">
+    <div class="sb" style="--h:0.42"><span>__STATIC_LABEL__</span></div>
+  </div>
+</div>
+
+<div class="bar">
+  <button id="prev" aria-label="上一步">◀ 上一步</button>
+  <button id="play" class="primary" aria-label="播放或暂停">▶ 播放</button>
+  <button id="next" aria-label="下一步">下一步 ▶</button>
+  <button id="reset" aria-label="重置到开头">↺ 重置</button>
+  <label>速度 <input id="speed" type="range" min="1" max="10" value="5" aria-label="播放速度"></label>
+  <span class="counter" id="counter">1 / 1</span>
+</div>
+
+<div class="status" id="status">—</div>
+
+<script>
+(() => {
+  // ===== 每一帧：{ desc: 状态说明, draw(ctx, W, H) } =====
+  const frames = [
+    { desc: "示例帧：把这里替换成你的数据", draw(ctx, W, H) {
+        ctx.clearRect(0, 0, W, H);
+        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#2563eb';
+        ctx.fillStyle = accent;
+        ctx.fillRect(W * 0.2, H * 0.3, W * 0.6, H * 0.2);
+    } },
+  ];
+
+  const cv = document.getElementById('cv');
+  const staticLayer = document.getElementById('static');
+  if (staticLayer) staticLayer.remove();   // 有脚本就撤掉兜底层
+  const ctx = cv.getContext('2d');
+  const btnPrev = document.getElementById('prev');
+  const btnPlay = document.getElementById('play');
+  const btnNext = document.getElementById('next');
+  const btnReset = document.getElementById('reset');
+  const speed = document.getElementById('speed');
+  const counter = document.getElementById('counter');
+  const statusEl = document.getElementById('status');
+
+  let idx = 0, timer = null;
+
+  function fit() {
+    const r = cv.getBoundingClientRect();
+    const k = window.devicePixelRatio || 1;
+    cv.width = Math.max(1, Math.round(r.width * k));
+    cv.height = Math.max(1, Math.round(r.height * k));
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    render();
+  }
+  function render() {
+    const f = frames[idx];
+    const r = cv.getBoundingClientRect();
+    ctx.clearRect(0, 0, r.width, r.height);
+    if (f && f.draw) f.draw(ctx, r.width, r.height);
+    statusEl.textContent = f ? f.desc : '—';
+    counter.textContent = (idx + 1) + ' / ' + frames.length;
+    btnPrev.disabled = idx === 0;
+    btnNext.disabled = idx === frames.length - 1;
+  }
+  function stop() {
+    if (timer) { clearInterval(timer); timer = null; btnPlay.textContent = '▶ 播放'; }
+  }
+  function play() {
+    if (timer) { stop(); return; }
+    if (idx === frames.length - 1) idx = 0;
+    btnPlay.textContent = '⏸ 暂停';
+    const ms = Math.round(1400 / Number(speed.value));
+    timer = setInterval(() => {
+      if (idx >= frames.length - 1) { stop(); return; }
+      idx++; render();
+    }, ms);
+  }
+  btnPrev.onclick = () => { stop(); if (idx > 0) { idx--; render(); } };
+  btnNext.onclick = () => { stop(); if (idx < frames.length - 1) { idx++; render(); } };
+  btnReset.onclick = () => { stop(); idx = 0; render(); };
+  btnPlay.onclick = play;
+  speed.oninput = () => { if (timer) { stop(); play(); } };
+  window.addEventListener('resize', fit);
+  window.addEventListener('keydown', (e) => {
+    if (e.key === ' ') { e.preventDefault(); play(); }
+    if (e.key === 'ArrowRight') { stop(); if (idx < frames.length - 1) { idx++; render(); } }
+    if (e.key === 'ArrowLeft') { stop(); if (idx > 0) { idx--; render(); } }
+    if (e.key === 'r' || e.key === 'R') { stop(); idx = 0; render(); }
+  });
+
+  fit();
+})();
+</script>
+</body>
+</html>
