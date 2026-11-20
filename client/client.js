@@ -38,6 +38,10 @@ window.__ModuleLoader__.load({
         title: '错题本',
         intro: '按知识点归拢答错的题，标出今天该复习的题量和每道题的复习时间。',
         dueTodayCount: '今天该复习',
+        statDue: '今天该复习',
+        statMastered: '已掌握',
+        statTotal: '全部错题',
+        badgeDue: '待复习',
         summaryMeta: '共 {total} 题 · 已掌握 {mastered} 题',
         groupCount: '{count} 题',
         loading: '正在读取本机错题…',
@@ -79,6 +83,10 @@ window.__ModuleLoader__.load({
         title: 'Wrong-answer notebook',
         intro: 'Graded mistakes grouped by knowledge point, with the reviews due today and when each one comes back.',
         dueTodayCount: 'Due today',
+        statDue: 'Due today',
+        statMastered: 'Mastered',
+        statTotal: 'All questions',
+        badgeDue: 'Due',
         summaryMeta: '{total} recorded · {mastered} mastered',
         groupCount: '{count}',
         loading: 'Reading the local wrong-answer file…',
@@ -376,14 +384,41 @@ window.__ModuleLoader__.load({
       summaryValue: { fontSize: 26, fontWeight: 600, lineHeight: '32px', fontVariantNumeric: 'tabular-nums' },
       summaryLabel: { fontSize: 13, color: 'var(--dsw-alias-label-secondary)', marginLeft: 6 },
       summaryMeta: { marginLeft: 'auto', fontSize: 12.5, color: 'var(--dsw-alias-label-tertiary)' },
-      group: { display: 'flex', flexDirection: 'column', gap: 8 },
-      groupHead: { display: 'flex', alignItems: 'center', gap: 8 },
-      groupTitle: { margin: 0, fontSize: 14, fontWeight: 500, lineHeight: '22px' },
-      groupCount: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)' },
-      list: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' },
+      statRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 },
+      stat: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        padding: '12px 14px',
+        borderRadius: 12,
+        border: '0.5px solid var(--dsw-alias-border-l2)',
+        background: 'var(--dsw-alias-bg-layer-2)',
+      },
+      statValue: {
+        fontSize: 24,
+        fontWeight: 600,
+        lineHeight: '30px',
+        fontVariantNumeric: 'tabular-nums',
+        color: 'var(--dsw-alias-label-primary)',
+      },
+      statLabel: { fontSize: 12, lineHeight: '18px', color: 'var(--dsw-alias-label-tertiary)' },
+      group: { display: 'flex', flexDirection: 'column', gap: 10 },
+      groupHead: { display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 2 },
+      groupTitle: { margin: 0, fontSize: 13, fontWeight: 560, lineHeight: '22px' },
+      groupCount: {
+        fontSize: 11.5,
+        lineHeight: '18px',
+        padding: '0 8px',
+        borderRadius: 999,
+        background: 'var(--dsw-alias-bg-layer-3)',
+        color: 'var(--dsw-alias-label-tertiary)',
+      },
+      list: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 },
       card: {
-        borderBottom: '0.5px solid var(--dsw-alias-border-l2)',
-        padding: '10px 2px',
+        border: '0.5px solid var(--dsw-alias-border-l2)',
+        borderRadius: 12,
+        padding: '12px 14px',
+        background: 'var(--dsw-alias-bg-layer-2)',
         display: 'flex',
         flexDirection: 'column',
         gap: 8,
@@ -418,33 +453,45 @@ window.__ModuleLoader__.load({
       badge: {
         fontSize: 11,
         lineHeight: '18px',
-        padding: '0 7px',
+        padding: '0 8px',
         borderRadius: 999,
-        background: 'color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent)',
+        background: 'color-mix(in srgb, var(--dsw-alias-state-success-primary) 14%, transparent)',
         color: 'var(--dsw-alias-state-success-secondary, var(--dsw-alias-state-success-primary))',
+        whiteSpace: 'nowrap',
+      },
+      badgeDue: {
+        fontSize: 11,
+        lineHeight: '18px',
+        padding: '0 8px',
+        borderRadius: 999,
+        background: 'color-mix(in srgb, var(--dsw-alias-state-warn-primary) 16%, transparent)',
+        color: 'var(--dsw-alias-state-warn-label, var(--dsw-alias-state-warn-primary))',
+        whiteSpace: 'nowrap',
       },
       actions: { display: 'flex', alignItems: 'center', gap: 8, flex: 'none' },
       actionButton: {
-        height: 26,
-        padding: '0 10px',
-        borderRadius: 8,
-        border: '0.5px solid var(--dsw-alias-border-l3)',
-        background: 'transparent',
+        height: 28,
+        padding: '0 12px',
+        borderRadius: 9,
+        border: '0.5px solid var(--dsw-alias-border-l2)',
+        background: 'var(--dsw-alias-bg-layer-3)',
         color: 'var(--dsw-alias-label-secondary)',
         font: 'inherit',
         fontSize: 12,
         lineHeight: '18px',
         cursor: 'pointer',
+        whiteSpace: 'nowrap',
       },
       actionButtonDisabled: { opacity: 0.45, cursor: 'default' },
       details: {
         display: 'flex',
         flexDirection: 'column',
         gap: 10,
-        margin: '4px 0 4px',
+        margin: '2px 0 2px',
         padding: '12px 14px',
         borderRadius: 10,
         background: 'var(--dsw-alias-bg-module-platform)',
+        borderLeft: '2px solid var(--dsw-alias-label-primary)',
       },
       detailLabel: { fontSize: 11.5, lineHeight: '18px', color: 'var(--dsw-alias-label-tertiary)' },
       detailText: { fontSize: 13, lineHeight: '20px', margin: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' },
@@ -453,12 +500,17 @@ window.__ModuleLoader__.load({
       empty: {
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'flex-start',
+        alignItems: 'center',
+        justifyContent: 'center',
         gap: 8,
-        padding: '24px 0',
+        padding: '40px 24px',
+        borderRadius: 14,
+        border: '0.5px dashed var(--dsw-alias-border-l2)',
+        background: 'var(--dsw-alias-bg-layer-2)',
         color: 'var(--dsw-alias-label-secondary)',
         fontSize: 13,
         lineHeight: '20px',
+        textAlign: 'center',
       },
       emptyTitle: { margin: 0, fontSize: 14, fontWeight: 500, color: 'var(--dsw-alias-label-primary)' },
       emptyBody: { margin: 0 },
@@ -622,12 +674,20 @@ window.__ModuleLoader__.load({
         const masteredCount = items.filter((item) => item.mastered).length
         const groups = groupItems(items, t('uncategorized'))
 
+        const statTile = (value, label, tone) =>
+          h(
+            'div',
+            { style: styles.stat },
+            h('div', { style: tone ? { ...styles.statValue, color: tone } : styles.statValue }, String(value)),
+            h('div', { style: styles.statLabel }, label),
+          )
+
         const summary = h(
           'div',
-          { style: styles.summary },
-          h('span', { style: styles.summaryValue }, String(dueToday.length)),
-          h('span', { style: styles.summaryLabel }, t('dueTodayCount')),
-          h('span', { style: styles.summaryMeta }, t('summaryMeta', { total: String(items.length), mastered: String(masteredCount) })),
+          { style: styles.statRow },
+          statTile(dueToday.length, t('statDue'), 'var(--dsw-alias-state-warn-primary)'),
+          statTile(masteredCount, t('statMastered'), 'var(--dsw-alias-state-success-primary)'),
+          statTile(items.length, t('statTotal')),
         )
 
         const header = h(
@@ -768,6 +828,9 @@ window.__ModuleLoader__.load({
                 h(
                   'span',
                   { style: styles.metaLine },
+                  !item.mastered && item.due && item.due.getTime() <= endOfDay(now).getTime()
+                    ? h('span', { style: styles.badgeDue }, t('badgeDue'))
+                    : null,
                   h('span', { style: dueStyle }, dueSentence(item, now, t, language)),
                   item.mastered ? h('span', { style: styles.badge }, t('mastered')) : null,
                 ),
@@ -828,6 +891,7 @@ window.__ModuleLoader__.load({
         const empty = h(
           'div',
           { style: styles.empty },
+          h('div', { style: { fontSize: 26, lineHeight: '32px' } }, '📭'),
           h('p', { style: styles.emptyTitle }, t('emptyTitle')),
           h('p', { style: styles.emptyBody }, state.file && state.file.exists === false ? t('missingFile') : t('emptyBody')),
           filePath ? h('code', { style: styles.code }, filePath) : null,
@@ -1034,9 +1098,27 @@ window.__ModuleLoader__.load({
         empty: '还没有知识库。下面新建一个。',
         createTitle: '新建知识库',
         namePlaceholder: '知识库名称，例如 视觉方向',
-        dirPlaceholder: '放文档的文件夹，例如 D:\\books\\ros2',
+        dirPlaceholder: '点这里选择放文档的文件夹，例如 D:\\books\\ros2',
+        dirBrowse: '选择文件夹…',
+        dirPickUnavailable: '这个界面没有可用的文件夹选择器，请直接粘贴路径。',
         create: '新建',
         creating: '正在建…',
+        folderOnly: '仅建文件夹（稍后再放文档）',
+        folderOnlyHint: '只创建知识库目录和登记，不建索引。把文档放进它的 raw/ 后，回到这里点「建索引」。',
+        emptyBadge: '空库',
+        foldersTitle: '已有文件夹',
+        foldersHint: '点击选择；DeepTutor 会把文档复制进知识库，原文件夹保持不动。',
+        foldersLoading: '正在读取文件夹…',
+        foldersEmpty: '这里没有子文件夹。把资料放进 E:\\DS_STUDY 下的任意文件夹就会出现在这里。',
+        foldersUp: '上一级',
+        foldersFiles: '个文件',
+        foldersDirs: '个目录',
+        foldersRefresh: '刷新',
+        trash: '删除',
+        trashConfirm: '确认？',
+        trashTitle: '已删除（可恢复）',
+        restore: '恢复',
+        reindex: '建索引',
         rename: '改名',
         renameConfirm: '确定',
         cancel: '取消',
@@ -1062,6 +1144,10 @@ window.__ModuleLoader__.load({
         setupDone: '准备完成。重启 DSH 后生效。',
         setupFailed: '准备失败，展开日志看原因。',
         docsButton: '文档',
+        review: '温习',
+        reviewEmpty: '这个库还没索引，先放文档再点「建索引」。',
+        reviewHint: '已请求用「{kb}」温习；提示词已复制到剪贴板 —— 输入框没自动填上就 Ctrl+V 再回车。',
+        reviewPrompt: '用「{kb}」知识库带我温习一次：先检索库里我最近学过的主题，挑一个最值得复习的点，按「讲解 → 出题 → 判分」的节奏来，题目用 GenUI quiz 卡片；判分后把错题写进错题本。开始前先问我这次想温习哪个方向。',
         docsTitle: '库里的文档',
         docsEmpty: '这个库还没有文档。',
         docsLoading: '正在列出文档…',
@@ -1084,9 +1170,27 @@ window.__ModuleLoader__.load({
         empty: 'No knowledge base yet. Create one below.',
         createTitle: 'New knowledge base',
         namePlaceholder: 'Name, e.g. vision',
-        dirPlaceholder: 'Folder holding the documents, e.g. D:\\books\\ros2',
+        dirPlaceholder: 'Click to choose the folder holding the documents, e.g. D:\\books\\ros2',
+        dirBrowse: 'Choose folder…',
+        dirPickUnavailable: 'No folder picker is available here — paste the path instead.',
         create: 'Create',
         creating: 'Creating…',
+        folderOnly: 'Folder only (add documents later)',
+        folderOnlyHint: 'Creates the folder and registry entry without an index. Drop documents into its raw/ folder, then press Index here.',
+        emptyBadge: 'Empty',
+        foldersTitle: 'Existing folders',
+        foldersHint: 'Click to pick one; DeepTutor copies the documents into the KB and leaves the folder alone.',
+        foldersLoading: 'Reading folders…',
+        foldersEmpty: 'No subfolders here. Put material under any folder in E:\\DS_STUDY and it shows up here.',
+        foldersUp: 'Up',
+        foldersFiles: 'files',
+        foldersDirs: 'folders',
+        foldersRefresh: 'Refresh',
+        trash: 'Delete',
+        trashConfirm: 'Sure?',
+        trashTitle: 'Deleted (restorable)',
+        restore: 'Restore',
+        reindex: 'Index',
         rename: 'Rename',
         renameConfirm: 'OK',
         cancel: 'Cancel',
@@ -1112,6 +1216,10 @@ window.__ModuleLoader__.load({
         setupDone: 'Done. Restart DSH to pick it up.',
         setupFailed: 'Preparation failed; expand the log for the reason.',
         docsButton: 'Files',
+        review: 'Review',
+        reviewEmpty: 'This base has no index yet — add documents and press Index first.',
+        reviewHint: 'Review request for “{kb}” is ready; the prompt is on your clipboard — paste it if the composer stays empty.',
+        reviewPrompt: 'Quiz me on the “{kb}” knowledge base: first search it for what I studied recently, pick the most worthwhile point, then go explain → quiz → grade, rendering the quiz as GenUI cards and filing wrong answers into the notebook. Ask me which direction I want before starting.',
         docsTitle: 'Documents in this base',
         docsEmpty: 'This base has no documents yet.',
         docsLoading: 'Listing documents…',
@@ -1153,6 +1261,139 @@ window.__ModuleLoader__.load({
         gap: 8,
       },
       createRow: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
+      checkRow: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        fontSize: 12.5,
+        color: 'var(--dsw-alias-label-secondary)',
+        cursor: 'pointer',
+      },
+      dirBox: {
+        flex: '1 1 260px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '4px 6px 4px 10px',
+        borderRadius: 10,
+        border: '1px solid var(--dsw-alias-border-l2)',
+        background: 'var(--dsw-alias-bg-layer-3)',
+        transition: 'border-color 120ms ease, box-shadow 120ms ease',
+      },
+      dirBoxFilled: {
+        borderColor: 'var(--dsw-alias-label-primary)',
+        boxShadow: '0 0 0 1px var(--dsw-alias-label-primary) inset',
+      },
+      dirIcon: { fontSize: 14, opacity: 0.8, userSelect: 'none' },
+      dirInput: {
+        flex: 1,
+        minWidth: 120,
+        padding: '5px 2px',
+        border: 'none',
+        outline: 'none',
+        background: 'transparent',
+        color: 'var(--dsw-alias-label-primary)',
+        fontSize: 13,
+      },
+      dirPick: {
+        padding: '4px 10px',
+        borderRadius: 7,
+        border: '1px solid var(--dsw-alias-border-l2)',
+        background: 'var(--dsw-alias-bg-layer-2)',
+        color: 'var(--dsw-alias-label-secondary)',
+        fontSize: 12,
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+      },
+      folderHead: { display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' },
+      folderTitle: { fontSize: 13, fontWeight: 560, color: 'var(--dsw-alias-label-primary)' },
+      folderRoot: {
+        fontSize: 11.5,
+        color: 'var(--dsw-alias-label-tertiary)',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      },
+      chipWrap: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'stretch' },
+      chip: {
+        display: 'flex',
+        alignItems: 'stretch',
+        border: '1px solid var(--dsw-alias-border-l2)',
+        borderRadius: 10,
+        overflow: 'hidden',
+        background: 'var(--dsw-alias-bg-layer-2)',
+        maxWidth: 280,
+      },
+      chipActive: {
+        borderColor: 'var(--dsw-alias-label-primary)',
+        boxShadow: '0 0 0 1px var(--dsw-alias-label-primary) inset',
+      },
+      chipMain: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '7px 10px',
+        border: 'none',
+        background: 'transparent',
+        color: 'var(--dsw-alias-label-primary)',
+        cursor: 'pointer',
+        textAlign: 'left',
+      },
+      chipIcon: { fontSize: 15, lineHeight: '18px' },
+      chipBody: { display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 },
+      chipName: {
+        fontSize: 12.5,
+        fontWeight: 520,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      },
+      chipMeta: { fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' },
+      chipX: {
+        padding: '0 9px',
+        border: 'none',
+        borderLeft: '1px solid var(--dsw-alias-border-l2)',
+        background: 'transparent',
+        color: 'var(--dsw-alias-label-tertiary)',
+        fontSize: 12,
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+      },
+      chipXDanger: {
+        background: 'var(--dsw-alias-state-error-primary)',
+        color: 'var(--dsw-alias-bg-layer-2)',
+      },
+      chipBack: {
+        alignSelf: 'flex-start',
+        padding: '4px 10px',
+        borderRadius: 8,
+        border: '1px dashed var(--dsw-alias-border-l2)',
+        background: 'transparent',
+        color: 'var(--dsw-alias-label-secondary)',
+        fontSize: 12,
+        cursor: 'pointer',
+      },
+      trashToggle: {
+        alignSelf: 'flex-start',
+        padding: '3px 8px',
+        border: 'none',
+        background: 'transparent',
+        color: 'var(--dsw-alias-label-tertiary)',
+        fontSize: 12,
+        cursor: 'pointer',
+        textDecoration: 'underline',
+      },
+      trashList: { display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 },
+      trashRow: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '5px 8px',
+        borderRadius: 8,
+        background: 'var(--dsw-alias-bg-layer-3)',
+      },
+      trashName: { fontSize: 12.5, color: 'var(--dsw-alias-label-secondary)', flex: 1 },
       input: {
         flex: '1 1 180px',
         minWidth: 140,
@@ -1252,6 +1493,27 @@ window.__ModuleLoader__.load({
       }
     }
 
+    /**
+     * Open the host's folder chooser and return the picked path.
+     *
+     * The Desktop shell exposes `__DSH_DIRECTORY_PICKER__`; the web build goes
+     * through the uiWorkspace service instead. Both resolve to `null` when the
+     * user cancels, so this throws only when neither surface exists.
+     */
+    async function browseDirectory(ctx) {
+      const desktop = typeof globalThis === 'object' ? globalThis.__DSH_DIRECTORY_PICKER__ : undefined
+      if (desktop && typeof desktop.pick === 'function') {
+        const picked = await desktop.pick()
+        return typeof picked === 'string' && picked !== '' ? picked : null
+      }
+      const workspaceUi = service(ctx, 'uiWorkspace')
+      if (workspaceUi && typeof workspaceUi.pickDirectory === 'function') {
+        const picked = await workspaceUi.pickDirectory()
+        return typeof picked === 'string' && picked !== '' ? picked : null
+      }
+      throw new Error('no-directory-picker')
+    }
+
     function createPage(ctx, t) {
       const activeLanguage = () => {
         const locale = service(ctx, 'locale')
@@ -1266,6 +1528,11 @@ window.__ModuleLoader__.load({
       return function KbManagerPage() {
         const [state, setState] = React.useState({ phase: 'loading', items: [], home: null, error: null })
         const [draft, setDraft] = React.useState({ name: '', dir: '' })
+        const [folderOnly, setFolderOnly] = React.useState(false)
+        const [folders, setFolders] = React.useState(null)
+        const [foldersBusy, setFoldersBusy] = React.useState(false)
+        const [pendingTrash, setPendingTrash] = React.useState(null)
+        const [trashOpen, setTrashOpen] = React.useState(false)
         const [renaming, setRenaming] = React.useState(null)
         const [renameValue, setRenameValue] = React.useState('')
         const [confirming, setConfirming] = React.useState(null)
@@ -1375,6 +1642,48 @@ window.__ModuleLoader__.load({
           }
         }
 
+        /** Load one level of the folder picker under the study root. */
+        const loadFolders = React.useCallback(async (rel = '') => {
+          setFoldersBusy(true)
+          try {
+            const response = await fetch(`${ENDPOINT}?folders=${encodeURIComponent(rel)}`, {
+              headers: { accept: 'application/json' },
+              credentials: 'same-origin',
+            })
+            const payload = await response.json()
+            if (!response.ok) throw new Error(payload && payload.message ? payload.message : `HTTP ${response.status}`)
+            if (!alive.current) return
+            setFolders(payload)
+          } catch (error) {
+            if (!alive.current) return
+            setNotice(error instanceof Error ? error.message : String(error))
+          } finally {
+            if (alive.current) setFoldersBusy(false)
+          }
+        }, [])
+
+        React.useEffect(() => { loadFolders() }, [loadFolders])
+
+        /** Move a folder into .trash — two clicks, the second one confirms. */
+        const trashOne = async (row) => {
+          if (pendingTrash !== row.rel) {
+            setPendingTrash(row.rel)
+            return
+          }
+          setPendingTrash(null)
+          const payload = await post({ action: 'folderDelete', rel: row.rel })
+          if (payload !== null) {
+            setFolders((previous) => (previous === null ? previous : { ...previous, ...payload }))
+            if (draft.dir === row.path) setDraft((previous) => ({ ...previous, dir: '' }))
+          }
+        }
+
+        /** Put a trashed folder back. */
+        const restoreOne = async (row) => {
+          const payload = await post({ action: 'folderRestore', entry: row.entry })
+          if (payload !== null) setFolders((previous) => (previous === null ? previous : { ...previous, ...payload }))
+        }
+
         const language = activeLanguage()
         const items = state.items
 
@@ -1389,6 +1698,8 @@ window.__ModuleLoader__.load({
           ),
         )
 
+        const canCreate = draft.name.trim() !== '' && (folderOnly || draft.dir.trim() !== '')
+
         const createRow = h(
           'div',
           { style: styles.card },
@@ -1402,26 +1713,178 @@ window.__ModuleLoader__.load({
               placeholder: t('namePlaceholder'),
               onChange: (event) => setDraft((previous) => ({ ...previous, name: event.target.value })),
             }),
-            h('input', {
-              style: styles.input,
-              value: draft.dir,
-              placeholder: t('dirPlaceholder'),
-              onChange: (event) => setDraft((previous) => ({ ...previous, dir: event.target.value })),
-            }),
+            folderOnly
+              ? null
+              : h(
+                  'div',
+                  { style: { ...styles.dirBox, ...(draft.dir.trim() !== '' ? styles.dirBoxFilled : null) } },
+                  h('span', { style: styles.dirIcon }, '📂'),
+                  h('input', {
+                    style: styles.dirInput,
+                    value: draft.dir,
+                    placeholder: t('dirPlaceholder'),
+                    title: t('dirBrowse'),
+                    onChange: (event) => setDraft((previous) => ({ ...previous, dir: event.target.value })),
+                    onClick: async () => {
+                      // An empty field opens the chooser straight away; once a path is
+                      // there, a click means "let me edit it".
+                      if (draft.dir.trim() !== '') return
+                      try {
+                        const picked = await browseDirectory(ctx)
+                        if (picked !== null) setDraft((previous) => ({ ...previous, dir: picked }))
+                      } catch {
+                        setNotice(t('dirPickUnavailable'))
+                      }
+                    },
+                  }),
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      style: styles.dirPick,
+                      title: t('dirBrowse'),
+                      onClick: async () => {
+                        try {
+                          const picked = await browseDirectory(ctx)
+                          if (picked !== null) setDraft((previous) => ({ ...previous, dir: picked }))
+                        } catch {
+                          setNotice(t('dirPickUnavailable'))
+                        }
+                      },
+                    },
+                    t('dirBrowse'),
+                  ),
+                ),
             h(
               'button',
               {
                 type: 'button',
-                style: { ...styles.primary, ...(working || draft.name.trim() === '' || draft.dir.trim() === '' ? styles.disabled : null) },
-                disabled: working || draft.name.trim() === '' || draft.dir.trim() === '',
+                style: { ...styles.primary, ...(working || !canCreate ? styles.disabled : null) },
+                disabled: working || !canCreate,
                 onClick: async () => {
-                  const payload = await post({ action: 'create', name: draft.name.trim(), docsDir: draft.dir.trim() })
+                  const payload = folderOnly
+                    ? await post({ action: 'create', name: draft.name.trim(), folderOnly: true })
+                    : await post({ action: 'create', name: draft.name.trim(), docsDir: draft.dir.trim() })
                   if (payload !== null) setDraft({ name: '', dir: '' })
                 },
               },
               working ? t('creating') : t('create'),
             ),
           ),
+          h(
+            'label',
+            { style: styles.checkRow },
+            h('input', {
+              type: 'checkbox',
+              checked: folderOnly,
+              onChange: (event) => setFolderOnly(event.target.checked),
+            }),
+            h('span', null, t('folderOnly')),
+          ),
+          folderOnly ? h('p', { style: styles.meta }, t('folderOnlyHint')) : null,
+        )
+
+        const folderCard = folderOnly ? null : h(
+          'div',
+          { style: styles.card },
+          h(
+            'div',
+            { style: styles.folderHead },
+            h('div', { style: styles.folderTitle }, t('foldersTitle')),
+            h('div', { style: styles.folderRoot }, folders === null ? '' : folders.path),
+            h(
+              'button',
+              {
+                type: 'button',
+                style: styles.trashToggle,
+                disabled: foldersBusy,
+                onClick: () => loadFolders(folders === null ? '' : folders.rel),
+              },
+              t('foldersRefresh'),
+            ),
+          ),
+          h('p', { style: styles.meta }, t('foldersHint')),
+          folders !== null && folders.parent !== null
+            ? h(
+                'button',
+                { type: 'button', style: styles.chipBack, onClick: () => loadFolders(folders.parent) },
+                `↑ ${t('foldersUp')}`,
+              )
+            : null,
+          h(
+            'div',
+            { style: styles.chipWrap },
+            folders === null || foldersBusy
+              ? h('span', { style: styles.meta }, t('foldersLoading'))
+              : folders.items.length === 0
+                ? h('span', { style: styles.meta }, t('foldersEmpty'))
+                : folders.items.map((row) => {
+                    const active = draft.dir === row.path
+                    const pending = pendingTrash === row.rel
+                    return h(
+                      'div',
+                      { key: row.rel, style: { ...styles.chip, ...(active ? styles.chipActive : null) } },
+                      h(
+                        'button',
+                        {
+                          type: 'button',
+                          style: styles.chipMain,
+                          title: row.path,
+                          onClick: () => {
+                            setDraft((previous) => ({ ...previous, dir: row.path }))
+                            setPendingTrash(null)
+                          },
+                        },
+                        h('span', { style: styles.chipIcon }, '📁'),
+                        h(
+                          'span',
+                          { style: styles.chipBody },
+                          h('span', { style: styles.chipName }, row.name),
+                          h(
+                            'span',
+                            { style: styles.chipMeta },
+                            `${row.files} ${t('foldersFiles')}${row.dirs ? ` · ${row.dirs} ${t('foldersDirs')}` : ''}`,
+                          ),
+                        ),
+                      ),
+                      h(
+                        'button',
+                        {
+                          type: 'button',
+                          style: { ...styles.chipX, ...(pending ? styles.chipXDanger : null) },
+                          title: pending ? t('trashConfirm') : t('trash'),
+                          onClick: () => trashOne(row),
+                        },
+                        pending ? t('trashConfirm') : '×',
+                      ),
+                    )
+                  }),
+          ),
+          folders !== null && folders.trash.length > 0
+            ? h(
+                'div',
+                null,
+                h(
+                  'button',
+                  { type: 'button', style: styles.trashToggle, onClick: () => setTrashOpen((value) => !value) },
+                  `${t('trashTitle')} (${folders.trash.length})`,
+                ),
+                trashOpen
+                  ? h(
+                      'div',
+                      { style: styles.trashList },
+                      folders.trash.map((row) =>
+                        h(
+                          'div',
+                          { key: row.entry, style: styles.trashRow },
+                          h('span', { style: styles.trashName }, row.origin),
+                          h('button', { type: 'button', style: styles.ghost, onClick: () => restoreOne(row) }, t('restore')),
+                        ),
+                      ),
+                    )
+                  : null,
+              )
+            : null,
         )
 
         const jobLine = job === null ? null : h(
@@ -1581,7 +2044,7 @@ window.__ModuleLoader__.load({
                     null,
                     h('span', { style: styles.name }, item.name),
                     item.isDefault ? h('span', { style: styles.badge }, t('isDefault')) : null,
-                    h('span', { style: styles.badge }, item.status),
+                    h('span', { style: styles.badge }, item.status === 'empty' ? t('emptyBadge') : item.status),
                   ),
               h(
                 'div',
@@ -1593,6 +2056,50 @@ window.__ModuleLoader__.load({
             h(
               'div',
               { style: styles.actions },
+              h(
+                'button',
+                {
+                  key: 'review',
+                  type: 'button',
+                  style: styles.ghost,
+                  disabled: working,
+                  title: t('reviewHint', { kb: item.name }),
+                  onClick: () => {
+                    if (!item.docs) {
+                      setNotice(t('reviewEmpty'))
+                      return
+                    }
+                    const prompt = t('reviewPrompt', { kb: item.name })
+                    try {
+                      // The composer chip listens for this and drops the prompt
+                      // straight into the input box.
+                      window.dispatchEvent(new CustomEvent('dsh-study-review', { detail: { prompt, kb: item.name } }))
+                    } catch {
+                      /* fall through to the clipboard */
+                    }
+                    try {
+                      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(prompt).catch(() => {})
+                    } catch {
+                      /* clipboard is optional */
+                    }
+                    setNotice(t('reviewHint', { kb: item.name }))
+                  },
+                },
+                t('review'),
+              ),
+              item.status === 'empty' || item.docs === 0
+                ? h(
+                    'button',
+                    {
+                      key: 'reindex',
+                      type: 'button',
+                      style: styles.ghost,
+                      disabled: working,
+                      onClick: () => { post({ action: 'reindex', name: item.name }) },
+                    },
+                    t('reindex'),
+                  )
+                : null,
               h(
                 'button',
                 {
@@ -1757,6 +2264,7 @@ window.__ModuleLoader__.load({
             notice ? h('div', { style: styles.error }, t('error', { message: notice })) : null,
             setupBanner,
             createRow,
+            folderCard,
             jobLine,
             state.phase === 'loading' ? h('p', { style: styles.meta }, t('loading')) : list,
             h('p', { style: styles.hint }, t('hint')),
@@ -1854,11 +2362,1083 @@ window.__ModuleLoader__.load({
     }
     })(require)
 
+    /**
+     * Composer control: digest this conversation into a knowledge base.
+     *
+     * Sits in the composer's right-hand tool row next to the other host chips.
+     * One click opens a small panel: pick a knowledge base (or create an empty
+     * one), name the file, then the host runs the digest as a job.
+     */
+    const review = (function (require) {
+      const React = require('react')
+      const h = React.createElement
+
+      const NS = 'dsh-deeptutor-study/review'
+      const ENDPOINT = '/api/study/kb'
+      const SIDEBAR_ORDER = 8
+
+      const MESSAGES = {
+        zh: {
+          panel: '温习',
+          title: '温习',
+          intro: '选一个知识库，生成一段绑定了该库的温习请求；点开始后它会进入输入框（或按你的设置新开一个对话）。',
+          loading: '正在读取知识库…',
+          empty: '还没有知识库。先去「知识库管理」建一个并放入资料。',
+          pick: '选择知识库',
+          topic: '想聚焦的主题（可留空）',
+          topicPlaceholder: '例如 回调组与执行器 / 标定流程',
+          start: '开始温习',
+          refresh: '刷新',
+          docsCount: '{count} 篇文档',
+          noDocs: '还没索引',
+          sent: '已把温习请求送进输入框；面板已收起。',
+          error: '出错了：{message}',
+          prompt: '用「{kb}」知识库带我温习一次{topic}：先检索库里我最近学过的主题，挑一个最值得复习的点，按「讲解 → 出题 → 判分」的节奏来，题目用 GenUI quiz 卡片；判分后把错题写进错题本。开始前先问我这次想温习哪个方向。',
+          topicPhrase: '，这次聚焦「{topic}」',
+        },
+        en: {
+          panel: 'Review',
+          title: 'Review',
+          intro: 'Pick a knowledge base and this builds a review request bound to it; pressing start sends it to the composer (or to a new conversation, depending on your setting).',
+          loading: 'Reading knowledge bases…',
+          empty: 'No knowledge base yet — create one in Knowledge bases and index some documents first.',
+          pick: 'Knowledge base',
+          topic: 'Topic to focus on (optional)',
+          topicPlaceholder: 'e.g. callback groups / calibration',
+          start: 'Start review',
+          refresh: 'Refresh',
+          docsCount: '{count} documents',
+          noDocs: 'Not indexed',
+          sent: 'Review request sent to the composer; the panel is closed.',
+          error: 'Failed: {message}',
+          prompt: 'Quiz me on the “{kb}” knowledge base{topic}: first search it for what I studied recently, pick the most worthwhile point, then go explain → quiz → grade, rendering the quiz as GenUI cards and filing wrong answers into the notebook. Ask me which direction I want before starting.',
+          topicPhrase: ', focusing on “{topic}”',
+        },
+      }
+
+      const styles = {
+        page: { display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' },
+        column: { padding: '20px 24px 0' },
+        body: { flex: 1, overflowY: 'auto', padding: '12px 24px 32px', display: 'flex', flexDirection: 'column', gap: 12 },
+        titleRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+        title: { margin: 0, fontSize: 18, fontWeight: 600, color: 'var(--dsw-alias-label-primary)' },
+        intro: { margin: '6px 0 0', fontSize: 12.5, lineHeight: '19px', color: 'var(--dsw-alias-label-tertiary)' },
+        card: {
+          border: '0.5px solid var(--dsw-alias-border-l2)',
+          borderRadius: 12,
+          padding: '12px 14px',
+          background: 'var(--dsw-alias-bg-layer-2)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+        },
+        label: { fontSize: 11.5, color: 'var(--dsw-alias-label-tertiary)' },
+        chips: { display: 'flex', gap: 8, flexWrap: 'wrap' },
+        chip: {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          padding: '8px 12px',
+          borderRadius: 10,
+          border: '0.5px solid var(--dsw-alias-border-l2)',
+          background: 'var(--dsw-alias-bg-layer-3)',
+          color: 'var(--dsw-alias-label-primary)',
+          fontSize: 12.5,
+          cursor: 'pointer',
+          textAlign: 'left',
+        },
+        chipOn: { borderColor: 'var(--dsw-alias-label-primary)', boxShadow: '0 0 0 1px var(--dsw-alias-label-primary) inset' },
+        chipMeta: { fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' },
+        input: {
+          width: '100%',
+          padding: '7px 10px',
+          borderRadius: 9,
+          border: '0.5px solid var(--dsw-alias-border-l2)',
+          background: 'var(--dsw-alias-bg-layer-3)',
+          color: 'var(--dsw-alias-label-primary)',
+          fontSize: 13,
+          boxSizing: 'border-box',
+        },
+        primary: {
+          alignSelf: 'flex-start',
+          padding: '8px 16px',
+          borderRadius: 9,
+          border: 'none',
+          background: 'var(--dsw-alias-label-primary)',
+          color: 'var(--dsw-alias-bg-layer-2)',
+          fontSize: 13,
+          cursor: 'pointer',
+        },
+        primaryOff: { opacity: 0.45, cursor: 'default' },
+        ghost: {
+          padding: '5px 12px',
+          borderRadius: 8,
+          border: '0.5px solid var(--dsw-alias-border-l2)',
+          background: 'transparent',
+          color: 'var(--dsw-alias-label-secondary)',
+          fontSize: 12.5,
+          cursor: 'pointer',
+        },
+        note: { fontSize: 12, lineHeight: '18px', color: 'var(--dsw-alias-label-tertiary)' },
+        ok: { fontSize: 12.5, color: 'var(--dsw-alias-state-success-primary)' },
+        error: { fontSize: 12.5, color: 'var(--dsw-alias-state-error-primary)' },
+      }
+
+      function service(ctx, name) {
+        try {
+          return ctx.get(name)
+        } catch {
+          return undefined
+        }
+      }
+
+      function ReviewIcon(props) {
+        const size = props && typeof props.size === 'number' ? props.size : 20
+        return h(
+          'svg',
+          {
+            viewBox: '0 0 24 24',
+            width: size,
+            height: size,
+            fill: 'none',
+            stroke: 'currentColor',
+            strokeWidth: 1.6,
+            strokeLinecap: 'round',
+            strokeLinejoin: 'round',
+            'aria-hidden': true,
+            style: { display: 'block' },
+          },
+          h('path', { d: 'M4.5 4.75h9.5A2.25 2.25 0 0 1 16.25 7v11.5' }),
+          h('path', { d: 'M4.5 4.75A1.75 1.75 0 0 0 2.75 6.5v13A1.75 1.75 0 0 0 4.5 21.25h9.5' }),
+          h('path', { d: 'M7 9h6M7 12.5h4' }),
+          h('path', { d: 'M17.5 15.5l2 2 3-3.25' }),
+        )
+      }
+
+      function createPage(ctx, t) {
+        return function ReviewPage() {
+          const [items, setItems] = React.useState(null)
+          const [error, setError] = React.useState(null)
+          const [picked, setPicked] = React.useState('')
+          const [topic, setTopic] = React.useState('')
+          const [note, setNote] = React.useState(null)
+          const alive = React.useRef(true)
+
+          React.useEffect(() => () => { alive.current = false }, [])
+
+          const load = React.useCallback(async () => {
+            try {
+              const response = await fetch(ENDPOINT, { headers: { accept: 'application/json' }, credentials: 'same-origin' })
+              const payload = await response.json()
+              if (!response.ok) throw new Error(payload && payload.message ? payload.message : `HTTP ${response.status}`)
+              if (!alive.current) return
+              const rows = Array.isArray(payload.items) ? payload.items : []
+              setItems(rows)
+              setPicked((current) => {
+                if (current !== '' && rows.some((row) => row.name === current)) return current
+                return rows.length === 1 ? rows[0].name : ''
+              })
+              setError(null)
+            } catch (reason) {
+              if (alive.current) setError(reason instanceof Error ? reason.message : String(reason))
+            }
+          }, [])
+
+          React.useEffect(() => { load() }, [load])
+
+          const start = () => {
+            if (picked === '') return
+            const focus = topic.trim()
+            const prompt = t('prompt', { kb: picked, topic: focus === '' ? '' : t('topicPhrase', { topic: focus }) })
+            try {
+              window.dispatchEvent(new CustomEvent('dsh-study-review', { detail: { prompt, kb: picked } }))
+            } catch {
+              /* the composer may be gone */
+            }
+            try {
+              if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(prompt).catch(() => {})
+            } catch {
+              /* clipboard is optional */
+            }
+            setNote(t('sent'))
+            try {
+              const layout = service(ctx, 'layout')
+              if (layout && typeof layout.selectPanel === 'function') layout.selectPanel(null)
+            } catch {
+              /* layout is gone */
+            }
+          }
+
+          const header = h(
+            'div',
+            { style: styles.column },
+            h(
+              'div',
+              { style: styles.titleRow },
+              h('div', null, h('h1', { style: styles.title }, t('title')), h('p', { style: styles.intro }, t('intro'))),
+              h('button', { type: 'button', style: styles.ghost, onClick: load }, t('refresh')),
+            ),
+          )
+
+          const rows = items === null
+            ? h('p', { style: styles.note }, t('loading'))
+            : items.length === 0
+              ? h('p', { style: styles.note }, t('empty'))
+              : h(
+                  'div',
+                  { style: styles.chips },
+                  items.map((row) =>
+                    h(
+                      'button',
+                      {
+                        key: row.name,
+                        type: 'button',
+                        style: { ...styles.chip, ...(picked === row.name ? styles.chipOn : null) },
+                        onClick: () => { setPicked(row.name); setNote(null) },
+                      },
+                      h('span', null, row.name),
+                      h('span', { style: styles.chipMeta }, row.docs ? t('docsCount', { count: String(row.docs) }) : t('noDocs')),
+                    ),
+                  ),
+                )
+
+          return h(
+            'div',
+            { style: styles.page },
+            header,
+            h(
+              'div',
+              { style: styles.body },
+              error !== null ? h('div', { style: styles.error }, t('error', { message: error })) : null,
+              h(
+                'div',
+                { style: styles.card },
+                h('div', { style: styles.label }, t('pick')),
+                rows,
+                h('div', { style: styles.label }, t('topic')),
+                h('input', {
+                  style: styles.input,
+                  value: topic,
+                  placeholder: t('topicPlaceholder'),
+                  onChange: (event) => setTopic(event.target.value),
+                }),
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    style: { ...styles.primary, ...(picked === '' ? styles.primaryOff : null) },
+                    disabled: picked === '',
+                    onClick: start,
+                  },
+                  t('start'),
+                ),
+              ),
+              note !== null ? h('div', { style: styles.ok }, note) : null,
+            ),
+          )
+        }
+      }
+
+      return {
+        inject: ['slots'],
+        apply(ctx) {
+          const locale = service(ctx, 'locale')
+          if (locale && typeof locale.register === 'function') ctx.effect(() => locale.register(NS, MESSAGES))
+          const language = () => {
+            try {
+              const snapshot = locale && locale.getSnapshot && locale.getSnapshot()
+              if (snapshot && typeof snapshot.active === 'string') return snapshot.active
+            } catch {
+              /* fall through */
+            }
+            const preferred = typeof navigator === 'object' && navigator && typeof navigator.language === 'string' ? navigator.language : ''
+            return preferred.toLowerCase().startsWith('zh') ? 'zh' : 'en'
+          }
+          const bound = locale && typeof locale.bind === 'function' ? locale.bind(NS) : undefined
+          const t = (key, params) => {
+            let text
+            if (typeof bound === 'function') {
+              try {
+                text = bound(key)
+              } catch {
+                text = undefined
+              }
+            }
+            if (typeof text !== 'string' || text === key) {
+              const table = MESSAGES[language()] || MESSAGES.en
+              text = table[key] !== undefined ? table[key] : MESSAGES.en[key] !== undefined ? MESSAGES.en[key] : key
+            }
+            if (params === undefined || params === null) return String(text)
+            return String(text).replace(/\{(\w+)\}/g, (match, name) => (params[name] === undefined ? match : String(params[name])))
+          }
+
+          const Page = createPage(ctx, t)
+          ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: NS, locale: NS }, Page))
+          ctx.slots.inject('sidebar.panellist', () =>
+            ctx.slots.register(
+              { name: 'sidebar.panellist', id: NS, order: SIDEBAR_ORDER, label: () => t('panel'), locale: NS },
+              ReviewIcon,
+            ),
+          )
+        },
+      }
+    })(require)
+
+
+    const composer = (function (require) {
+      const React = require('react')
+      const h = React.createElement
+
+      const KB_ENDPOINT = '/api/study/kb'
+      const DIGEST_ENDPOINT = '/api/study/digest'
+      const SETUP_ENDPOINT = '/api/study/setup'
+      const VM_ENDPOINT = '/vm-ubuntu'
+
+      // The VM chip from dsh-plugin-vm-ubuntu now lives inside this panel, so the
+      // standalone one would just duplicate it. Remove this rule to bring it back.
+      const HIDE_VM_CHIP = '.dsh-vm-wrap{display:none!important}'
+      if (typeof document !== 'undefined' && document.querySelector('style[data-plugin-css="dsh-deeptutor-study/hide-vm-chip"]') === null) {
+        const tag = document.createElement('style')
+        tag.dataset.plugin = 'dsh-deeptutor-study'
+        tag.dataset.pluginCss = 'dsh-deeptutor-study/hide-vm-chip'
+        tag.textContent = HIDE_VM_CHIP
+        document.head.appendChild(tag)
+      }
+
+      async function call(url, init) {
+        const response = await fetch(url, {
+          cache: 'no-store',
+          credentials: 'same-origin',
+          headers: { accept: 'application/json', ...(init && init.body ? { 'content-type': 'application/json' } : {}) },
+          ...init,
+        })
+        const text = await response.text()
+        let payload = null
+        try {
+          payload = text ? JSON.parse(text) : null
+        } catch {
+          payload = { message: text.slice(0, 200) }
+        }
+        if (!response.ok) {
+          const message = payload && (payload.message || payload.error)
+          // A bare "not found" means the route itself is missing: the Host half
+          // only picks up new routes on a full restart.
+          const bare = message === undefined || message === 'not found' || message === 'Not Found'
+          throw new Error(bare ? `接口不可用（HTTP ${response.status}）—— 宿主补丁还没生效，请完全重启 DSH` : String(message))
+        }
+        return payload
+      }
+
+      const styles = {
+        wrap: { position: 'relative', display: 'inline-flex', alignItems: 'center' },
+        chip: {
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          height: 26,
+          padding: '0 9px',
+          borderRadius: 999,
+          border: '0.5px solid var(--dsw-alias-border-l2)',
+          background: 'var(--dsw-alias-interactive-bg-hover)',
+          color: 'var(--dsw-alias-label-secondary)',
+          fontSize: 12.5,
+          lineHeight: '26px',
+          fontWeight: 500,
+          cursor: 'pointer',
+          whiteSpace: 'nowrap',
+        },
+        chipOn: { color: 'var(--dsw-alias-label-primary)', borderColor: 'var(--dsw-alias-label-primary)' },
+        dot: { width: 7, height: 7, borderRadius: '50%', background: 'var(--dsw-alias-label-tertiary)', flex: 'none' },
+        dotBusy: { background: 'var(--dsw-alias-state-warn-primary)' },
+        dotDone: { background: 'var(--dsw-alias-state-success-primary)' },
+        panel: {
+          position: 'fixed',
+          width: 356,
+          maxHeight: '58vh',
+          display: 'flex',
+          flexDirection: 'column',
+          borderRadius: 14,
+          border: '0.5px solid var(--dsw-alias-border-l2)',
+          background: 'var(--dsw-alias-bg-layer-1)',
+          boxShadow: '0 18px 44px #00000033',
+          overflow: 'hidden',
+          zIndex: 60,
+        },
+        panelHead: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '10px 12px',
+          borderBottom: '0.5px solid var(--dsw-alias-border-l2)',
+          flex: '0 0 auto',
+        },
+        panelTitle: { fontSize: 13, fontWeight: 600, color: 'var(--dsw-alias-label-primary)' },
+        panelHint: { fontSize: 11, color: 'var(--dsw-alias-label-tertiary)' },
+        panelBody: {
+          flex: '1 1 auto',
+          minHeight: 0,
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+          padding: 8,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+        },
+        section: {
+          // Never let the flex column shrink a section: it would clip the fields
+          // inside instead of scrolling the body.
+          flex: '0 0 auto',
+          borderRadius: 10,
+          border: '0.5px solid var(--dsw-alias-border-l2)',
+          background: 'var(--dsw-alias-bg-layer-2)',
+          overflow: 'hidden',
+        },
+        sectionHead: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          width: '100%',
+          padding: '9px 10px',
+          border: 'none',
+          background: 'transparent',
+          color: 'var(--dsw-alias-label-primary)',
+          fontSize: 12.5,
+          fontWeight: 520,
+          cursor: 'pointer',
+          textAlign: 'left',
+        },
+        chevron: { fontSize: 10, opacity: 0.7, width: 10 },
+        sectionTitle: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+        sectionStatus: { fontSize: 11, color: 'var(--dsw-alias-label-tertiary)', whiteSpace: 'nowrap' },
+        sectionBody: {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+          padding: '0 10px 10px',
+          borderTop: '0.5px solid var(--dsw-alias-border-l2)',
+          paddingTop: 10,
+        },
+        sectionHint: { padding: '0 10px 8px', fontSize: 11, lineHeight: '16px', color: 'var(--dsw-alias-label-tertiary)' },
+        label: { fontSize: 11.5, color: 'var(--dsw-alias-label-tertiary)' },
+        select: {
+          width: '100%',
+          padding: '7px 9px',
+          borderRadius: 9,
+          border: '0.5px solid var(--dsw-alias-border-l2)',
+          background: 'var(--dsw-alias-bg-layer-3)',
+          color: 'var(--dsw-alias-label-primary)',
+          fontSize: 13,
+        },
+        input: {
+          width: '100%',
+          padding: '7px 9px',
+          borderRadius: 9,
+          border: '0.5px solid var(--dsw-alias-border-l2)',
+          background: 'var(--dsw-alias-bg-layer-3)',
+          color: 'var(--dsw-alias-label-primary)',
+          fontSize: 13,
+          boxSizing: 'border-box',
+        },
+        row: { display: 'flex', gap: 8, alignItems: 'center' },
+        primary: {
+          flex: 1,
+          padding: '8px 12px',
+          borderRadius: 9,
+          border: 'none',
+          background: 'var(--dsw-alias-label-primary)',
+          color: 'var(--dsw-alias-bg-layer-2)',
+          fontSize: 12.5,
+          cursor: 'pointer',
+        },
+        primaryOff: { opacity: 0.45, cursor: 'default' },
+        ghost: {
+          padding: '7px 10px',
+          borderRadius: 9,
+          border: '0.5px solid var(--dsw-alias-border-l2)',
+          background: 'transparent',
+          color: 'var(--dsw-alias-label-secondary)',
+          fontSize: 12,
+          cursor: 'pointer',
+          whiteSpace: 'nowrap',
+        },
+        ghostOff: { opacity: 0.45, cursor: 'default' },
+        toggleOn: { background: 'var(--dsw-alias-state-success-primary)', color: 'var(--dsw-alias-bg-layer-1)', borderColor: 'transparent' },
+        note: { fontSize: 11, lineHeight: '16px', color: 'var(--dsw-alias-label-tertiary)' },
+        log: {
+          maxHeight: 88,
+          overflowY: 'auto',
+          margin: 0,
+          padding: '8px 10px',
+          borderRadius: 9,
+          background: 'var(--dsw-alias-bg-module-platform)',
+          color: 'var(--dsw-alias-label-secondary)',
+          fontSize: 11,
+          lineHeight: '16px',
+          whiteSpace: 'pre-wrap',
+        },
+        error: { fontSize: 11.5, color: 'var(--dsw-alias-state-error-primary)' },
+        ok: { fontSize: 11.5, color: 'var(--dsw-alias-state-success-primary)' },
+      }
+
+      /** Collapsible block; every feature lives in one of these. */
+      function Section(props) {
+        const [open, setOpen] = React.useState(props.initial === true)
+        return h(
+          'div',
+          { style: styles.section },
+          h(
+            'button',
+            { type: 'button', style: styles.sectionHead, onClick: () => setOpen((value) => !value) },
+            h('span', { style: styles.chevron }, open ? '▾' : '▸'),
+            h('span', { style: styles.sectionTitle }, props.title),
+            props.status ? h('span', { style: styles.sectionStatus }, props.status) : null,
+          ),
+          open ? h('div', { style: styles.sectionBody }, props.children) : null,
+        )
+      }
+
+      /** 总结入库：把本对话整理成笔记写进知识库。 */
+      function DigestSection() {
+        const [kbs, setKbs] = React.useState(null)
+        const [kb, setKb] = React.useState('')
+        const [title, setTitle] = React.useState('')
+        const [job, setJob] = React.useState(null)
+        const [error, setError] = React.useState(null)
+        const [creating, setCreating] = React.useState(false)
+        const [newKb, setNewKb] = React.useState('')
+        const alive = React.useRef(true)
+
+        React.useEffect(() => {
+          alive.current = true
+          return () => {
+            alive.current = false
+          }
+        }, [])
+
+        const loadKbs = React.useCallback(async () => {
+          try {
+            const payload = await call(KB_ENDPOINT)
+            if (!alive.current) return
+            const names = (payload.items || []).map((row) => row.name)
+            setKbs(names)
+            setKb((current) => (current !== '' && names.includes(current) ? current : payload.default || names[0] || ''))
+          } catch (reason) {
+            if (alive.current) setError(reason instanceof Error ? reason.message : String(reason))
+          }
+        }, [])
+
+        React.useEffect(() => {
+          loadKbs()
+        }, [loadKbs])
+
+        React.useEffect(() => {
+          if (job === null || job.status !== 'running') return undefined
+          const timer = setInterval(async () => {
+            try {
+              const payload = await call(`${DIGEST_ENDPOINT}?job=${encodeURIComponent(job.id)}`)
+              if (!alive.current) return
+              setJob(payload.job)
+              if (payload.job && payload.job.status !== 'running') loadKbs()
+            } catch {
+              /* keep polling */
+            }
+          }, 2000)
+          return () => clearInterval(timer)
+        }, [job, loadKbs])
+
+        const start = async () => {
+          if (kb === '') return
+          setError(null)
+          setJob(null)
+          try {
+            const payload = await call(DIGEST_ENDPOINT, { method: 'POST', body: JSON.stringify({ kb, title: title.trim() }) })
+            if (alive.current) setJob(payload.job)
+          } catch (reason) {
+            if (alive.current) setError(reason instanceof Error ? reason.message : String(reason))
+          }
+        }
+
+        const createKb = async () => {
+          const name = newKb.trim()
+          if (name === '') return
+          setCreating(true)
+          setError(null)
+          try {
+            await call(KB_ENDPOINT, { method: 'POST', body: JSON.stringify({ action: 'create', name, folderOnly: true }) })
+            if (!alive.current) return
+            setNewKb('')
+            await loadKbs()
+            setKb(name)
+          } catch (reason) {
+            if (alive.current) setError(reason instanceof Error ? reason.message : String(reason))
+          } finally {
+            if (alive.current) setCreating(false)
+          }
+        }
+
+        const running = job !== null && job.status === 'running'
+        const done = job !== null && job.status === 'done'
+        const failed = job !== null && job.status === 'failed'
+        const lines = job && job.log ? job.log.trim().split('\n').slice(-5) : []
+
+        return h(
+          Section,
+          { title: '总结入库', status: running ? '进行中' : done ? '完成' : null, initial: true },
+          h(
+            'div',
+            null,
+            h('div', { style: styles.label }, '目标知识库'),
+            h(
+              'select',
+              { style: styles.select, value: kb, disabled: running, onChange: (event) => setKb(event.target.value) },
+              kbs === null
+                ? h('option', { value: '' }, '正在读取…')
+                : kbs.length === 0
+                  ? h('option', { value: '' }, '还没有知识库，先在下面新建')
+                  : kbs.map((name) => h('option', { key: name, value: name }, name)),
+            ),
+          ),
+          h(
+            'div',
+            null,
+            h('div', { style: styles.label }, '文件名（留空按日期自动命名）'),
+            h('input', {
+              style: styles.input,
+              value: title,
+              disabled: running,
+              placeholder: '2026-11-19-知识库插件排障',
+              onChange: (event) => setTitle(event.target.value),
+            }),
+          ),
+          h(
+            'div',
+            { style: styles.row },
+            h('input', {
+              style: { ...styles.input, flex: 1 },
+              value: newKb,
+              disabled: running || creating,
+              placeholder: '新建空知识库',
+              onChange: (event) => setNewKb(event.target.value),
+            }),
+            h(
+              'button',
+              { type: 'button', style: styles.ghost, disabled: running || creating || newKb.trim() === '', onClick: createKb },
+              creating ? '创建中…' : '新建',
+            ),
+          ),
+          h(
+            'button',
+            {
+              type: 'button',
+              style: { ...styles.primary, ...(running || kb === '' ? styles.primaryOff : null) },
+              disabled: running || kb === '',
+              onClick: start,
+            },
+            running ? '正在总结…' : '开始总结',
+          ),
+          lines.length > 0 ? h('pre', { style: styles.log }, lines.join('\n')) : null,
+          failed ? h('div', { style: styles.error }, '失败，看上方日志') : null,
+          done ? h('div', { style: styles.ok }, `已存入 ${kb}`) : null,
+          error !== null ? h('div', { style: styles.error }, error) : null,
+        )
+      }
+
+      /** Ubuntu VM：与 dsh-plugin-vm-ubuntu 的宿主路由对话。 */
+      function VmSection() {
+        const [vm, setVm] = React.useState(null)
+        const [busy, setBusy] = React.useState(false)
+        const [error, setError] = React.useState(null)
+        const alive = React.useRef(true)
+
+        React.useEffect(() => {
+          alive.current = true
+          return () => {
+            alive.current = false
+          }
+        }, [])
+
+        const refresh = React.useCallback(async () => {
+          try {
+            const payload = await call(`${VM_ENDPOINT}/state`)
+            if (alive.current) {
+              setVm(payload)
+              setError(null)
+            }
+          } catch (reason) {
+            if (alive.current) setError(reason instanceof Error ? reason.message : String(reason))
+          }
+        }, [])
+
+        React.useEffect(() => {
+          refresh()
+          const timer = setInterval(refresh, 10000)
+          return () => clearInterval(timer)
+        }, [refresh])
+
+        const act = async (run) => {
+          setBusy(true)
+          try {
+            const next = await run()
+            if (alive.current && next) setVm(next)
+            if (alive.current) setError(null)
+          } catch (reason) {
+            if (alive.current) setError(reason instanceof Error ? reason.message : String(reason))
+          } finally {
+            if (alive.current) setBusy(false)
+          }
+        }
+
+        if (vm === null) {
+          return h(Section, { title: 'Ubuntu VM', status: error ? '不可用' : '读取中' },
+            h('div', { style: styles.note }, error || '正在读取虚拟机状态…'))
+        }
+
+        const running = vm.power === 'running'
+        const label = !vm.enabled ? '已停用' : running ? (vm.sshPortOpen ? '运行中' : '启动中') : '已关机'
+        return h(
+          Section,
+          { title: 'Ubuntu VM', status: label },
+          h(
+            'div',
+            { style: styles.row },
+            h(
+              'button',
+              {
+                type: 'button',
+                style: { ...styles.ghost, ...(vm.enabled ? styles.toggleOn : null) },
+                disabled: busy,
+                onClick: () => act(() => call(`${VM_ENDPOINT}/access`, { method: 'POST', body: JSON.stringify({ enabled: !vm.enabled }) })),
+              },
+              vm.enabled ? '访问已开启' : '访问已停用',
+            ),
+            h(
+              'button',
+              {
+                type: 'button',
+                style: { ...styles.ghost, ...(vm.enabled ? null : styles.ghostOff) },
+                disabled: busy || !vm.enabled,
+                onClick: () => act(() => call(`${VM_ENDPOINT}/power`, { method: 'POST', body: JSON.stringify({ action: running ? 'stop' : 'start' }) })),
+              },
+              running ? '关机' : '开机',
+            ),
+          ),
+          h('div', { style: styles.note }, vm.host ? `SSH ${vm.host}` : '未检测到 SSH 主机'),
+          error !== null ? h('div', { style: styles.error }, error) : null,
+        )
+      }
+
+      /** 学习环境：Python 依赖与本地向量服务是否就绪。 */
+      function SetupSection() {
+        const [status, setStatus] = React.useState(null)
+        const [job, setJob] = React.useState(null)
+        const [error, setError] = React.useState(null)
+        const alive = React.useRef(true)
+
+        React.useEffect(() => {
+          alive.current = true
+          return () => {
+            alive.current = false
+          }
+        }, [])
+
+        const load = React.useCallback(async () => {
+          try {
+            const payload = await call(SETUP_ENDPOINT)
+            if (alive.current) setStatus(payload)
+          } catch (reason) {
+            if (alive.current) setError(reason instanceof Error ? reason.message : String(reason))
+          }
+        }, [])
+
+        React.useEffect(() => {
+          load()
+        }, [load])
+
+        React.useEffect(() => {
+          if (job === null || job.status !== 'running') return undefined
+          const timer = setInterval(async () => {
+            try {
+              const payload = await call(`${SETUP_ENDPOINT}?job=${encodeURIComponent(job.id)}`)
+              if (!alive.current) return
+              setJob(payload.job)
+              if (payload.job && payload.job.status !== 'running') load()
+            } catch {
+              /* keep polling */
+            }
+          }, 2500)
+          return () => clearInterval(timer)
+        }, [job, load])
+
+        const ready = status !== null && status.pythonOk === true && status.deeptutorHomeReady === true
+        const running = job !== null && job.status === 'running'
+        const lines = job && job.log ? job.log.trim().split('\n').slice(-4) : []
+
+        return h(
+          Section,
+          { title: '学习环境', status: job === null ? (ready ? '已就绪' : status === null ? '读取中' : '未就绪') : running ? '准备中' : job.status === 'done' ? '已就绪' : '失败' },
+          h('div', { style: styles.note }, ready ? 'Python 依赖与本地向量服务都可用。' : '缺 Python 依赖或向量服务没起来时，知识库索引会失败。'),
+          h(
+            'button',
+            {
+              type: 'button',
+              style: { ...styles.primary, alignSelf: 'flex-start', flex: 'none', ...(running ? styles.primaryOff : null) },
+              disabled: running,
+              onClick: async () => {
+                try {
+                  const payload = await call(SETUP_ENDPOINT, { method: 'POST', body: '{}' })
+                  if (alive.current) setJob(payload.job)
+                } catch (reason) {
+                  if (alive.current) setError(reason instanceof Error ? reason.message : String(reason))
+                }
+              },
+            },
+            running ? '准备中…' : '准备学习环境',
+          ),
+          lines.length > 0 ? h('pre', { style: styles.log }, lines.join('\n')) : null,
+          error !== null ? h('div', { style: styles.error }, error) : null,
+        )
+      }
+
+      /** 侧栏快捷入口（点了切到对应面板）。 */
+      function ShortcutsSection({ ctx }) {
+        const open = (id) => {
+          try {
+            const layout = ctx.get('layout')
+            if (layout && typeof layout.selectPanel === 'function') layout.selectPanel(id)
+          } catch {
+            /* ignore */
+          }
+        }
+        return h(
+          Section,
+          { title: '打开面板' },
+          h(
+            'div',
+            { style: styles.row },
+            h('button', { type: 'button', style: styles.ghost, onClick: () => open('dsh-deeptutor-study/knowledge') }, '知识库管理'),
+            h('button', { type: 'button', style: styles.ghost, onClick: () => open('dsh-deeptutor-study/wrongbook') }, '错题本'),
+          ),
+        )
+      }
+
+      const NEW_SESSION_KEY = 'dsh-deeptutor-study/review-new-session'
+
+      function readNewSession() {
+        try {
+          return window.localStorage.getItem(NEW_SESSION_KEY) === '1'
+        } catch {
+          return false
+        }
+      }
+
+      function writeNewSession(value) {
+        try {
+          window.localStorage.setItem(NEW_SESSION_KEY, value ? '1' : '0')
+        } catch {
+          /* storage may be unavailable */
+        }
+      }
+
+      /** Best-effort lookup of the sidebar's new-conversation button. */
+      function findNewChatButton() {
+        const pattern = /新会话|新对话|新的对话|new chat|new conversation|new session/i
+        const nodes = Array.from(document.querySelectorAll('button, [role="button"], a'))
+        for (const node of nodes) {
+          const text = (node.textContent || '').trim()
+          const aria = (node.getAttribute('aria-label') || '').trim()
+          const title = (node.getAttribute('title') || '').trim()
+          if (!pattern.test(text) && !pattern.test(aria) && !pattern.test(title)) continue
+          const rect = node.getBoundingClientRect()
+          if (rect.width < 24 || rect.height < 16) continue
+          if (rect.left > window.innerWidth * 0.5) continue
+          return node
+        }
+        return null
+      }
+
+      function findComposerEditor() {
+        const nodes = Array.from(document.querySelectorAll('[contenteditable="true"], textarea'))
+        for (const node of nodes) {
+          const rect = node.getBoundingClientRect()
+          if (rect.width > 60 && rect.height > 12) return node
+        }
+        return null
+      }
+
+      /**
+       * Experimental: click 「新会话」 then write the prompt into the fresh draft.
+       *
+       * DSH exposes no session-creation API to plugins, so this drives the DOM.
+       * It throws when the button or the editor cannot be found, and the caller
+       * falls back to the current composer.
+       */
+      async function startFreshSession(prompt) {
+        const button = findNewChatButton()
+        if (button === null) throw new Error('没找到「新会话」按钮')
+        button.click()
+        await new Promise((resolve) => setTimeout(resolve, 700))
+        const editor = findComposerEditor()
+        if (editor === null) throw new Error('新会话的输入框没出现')
+        editor.focus()
+        if (typeof HTMLTextAreaElement === 'function' && editor instanceof HTMLTextAreaElement) {
+          editor.value = prompt
+          editor.dispatchEvent(new Event('input', { bubbles: true }))
+          return
+        }
+        const ok = typeof document.execCommand === 'function' && document.execCommand('insertText', false, prompt)
+        if (ok) return
+        editor.textContent = prompt
+        editor.dispatchEvent(new InputEvent('input', { bubbles: true, data: prompt, inputType: 'insertText' }))
+      }
+
+      function FeaturesPanel({ ctx, slotProps }) {
+        const [open, setOpen] = React.useState(false)
+        const [pos, setPos] = React.useState(null)
+        const [newSession, setNewSession] = React.useState(() => readNewSession())
+        const [panelNote, setPanelNote] = React.useState(null)
+        const anchor = React.useRef(null)
+
+        // A 「温习」 click in the knowledge-base page asks the composer to take a
+        // prompt: either into the current draft (inputActions) or, when the
+        // experimental switch is on, into a freshly created conversation.
+        React.useEffect(() => {
+          const insertHere = (prompt) => {
+            const actions = slotProps && slotProps.inputActions
+            if (!actions || typeof actions.insertText !== 'function') return false
+            try {
+              const span = typeof actions.captureInsertion === 'function' ? actions.captureInsertion() : undefined
+              actions.insertText(prompt, span)
+              return true
+            } catch {
+              return false
+            }
+          }
+          const onReview = (event) => {
+            const prompt = event && event.detail ? event.detail.prompt : undefined
+            if (typeof prompt !== 'string' || prompt === '') return
+            if (!readNewSession()) {
+              insertHere(prompt)
+              return
+            }
+            startFreshSession(prompt).then(
+              () => setPanelNote('已在新对话里填入温习请求，回车开始。'),
+              (reason) => {
+                const message = reason instanceof Error ? reason.message : String(reason)
+                setPanelNote(`新建对话失败：${message}；已退回当前输入框（提示词也在剪贴板）。`)
+                insertHere(prompt)
+              },
+            )
+          }
+          window.addEventListener('dsh-study-review', onReview)
+          return () => window.removeEventListener('dsh-study-review', onReview)
+        }, [slotProps])
+
+        const toggle = () => {
+          if (open) {
+            setOpen(false)
+            return
+          }
+          try {
+            const rect = anchor.current.getBoundingClientRect()
+            setPos({ bottom: Math.max(12, window.innerHeight - rect.top + 8), right: Math.max(12, window.innerWidth - rect.right) })
+          } catch {
+            setPos({ bottom: 80, right: 24 })
+          }
+          setOpen(true)
+        }
+
+        React.useEffect(() => {
+          if (!open) return undefined
+          const onKey = (event) => {
+            if (event.key === 'Escape') setOpen(false)
+          }
+          window.addEventListener('keydown', onKey)
+          return () => window.removeEventListener('keydown', onKey)
+        }, [open])
+
+        return h(
+          'span',
+          { style: styles.wrap },
+          h(
+            'button',
+            {
+              type: 'button',
+              ref: anchor,
+              style: { ...styles.chip, ...(open ? styles.chipOn : null) },
+              title: '功能面板：现有的与以后的开关都在这里',
+              onClick: toggle,
+            },
+            h('span', { style: styles.dot }),
+            h('span', null, '功能'),
+          ),
+          open
+            ? h(
+                'div',
+                { style: { ...styles.panel, ...(pos ? { bottom: pos.bottom, right: pos.right } : { bottom: 80, right: 24 }) } },
+                h(
+                  'div',
+                  { style: styles.panelHead },
+                  h('span', { style: styles.panelTitle }, '功能'),
+                  h('span', { style: styles.panelHint }, '点每一行展开'),
+                  h('span', { style: { flex: 1 } }),
+                  h('button', { type: 'button', style: styles.ghost, onClick: () => setOpen(false) }, '收起'),
+                ),
+                h(
+                  'div',
+                  { style: styles.panelBody },
+                  h(DigestSection, null),
+                  h(VmSection, null),
+                  h(SetupSection, null),
+                  h(
+                    Section,
+                    { title: '温习用新对话', status: newSession ? '已开启' : '已关闭' },
+                    h(
+                      'div',
+                      { style: styles.note },
+                      '开启后，点知识库列表里的「温习」会先模拟点击左侧「新会话」，再把提示词写进新对话的输入框。' +
+                        'DSH 没给插件开放新建会话的接口，这一版靠 DOM 找按钮，改版可能失效；失败会自动退回当前输入框（提示词同时留在剪贴板）。',
+                    ),
+                    h(
+                      'button',
+                      {
+                        type: 'button',
+                        style: { ...styles.ghost, ...(newSession ? styles.toggleOn : null), alignSelf: 'flex-start' },
+                        onClick: () => {
+                          const next = !newSession
+                          setNewSession(next)
+                          writeNewSession(next)
+                        },
+                      },
+                      newSession ? '已开启 · 点击关闭' : '已关闭 · 点击开启',
+                    ),
+                  ),
+                  h(ShortcutsSection, { ctx }),
+                  panelNote !== null ? h('div', { style: styles.ok, padding: '0 2px' }, panelNote) : null,
+                  h('div', { style: styles.note }, '以后的新功能都会加到这个面板里。'),
+                ),
+              )
+            : null,
+        )
+      }
+
+      return {
+        inject: ['slots'],
+        apply(ctx) {
+          const Chip = (props) => h(FeaturesPanel, { ctx, slotProps: props })
+          ctx.slots.inject('conversation.input.right', () =>
+            ctx.slots.register({ name: 'conversation.input.right', id: 'deeptutor-features', order: 60 }, Chip),
+          )
+        },
+      }
+    })(require)
+
     return {
       inject: ['slots'],
       apply(ctx) {
         wrongbook.apply(ctx)
         knowledge.apply(ctx)
+        review.apply(ctx)
+        composer.apply(ctx)
       },
     }
   },

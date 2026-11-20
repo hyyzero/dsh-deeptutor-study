@@ -31,14 +31,40 @@
 
 - 列出全部知识库：文档数、索引块数、向量模型、默认库标记
 - 新建：指定名称与文档目录，后台索引，展示进度与日志
+- 创建空库：只登记文件夹，稍后放入文档再点索引
+- 文件夹选择与统计，删除后可在回收站恢复
 - 改名、删除、设为默认
 - 展开查看库内文档；文本类可页内预览，其余用系统程序打开
 
+### 温习（左侧栏）
+
+- 选一个知识库，按「讲解 → 出题 → 判分」的顺序复习
+- 判分后的错题写入错题本
+- 可选择在新会话中进行，提示词同时复制到剪贴板
+
+### 总结入库
+
+读取最近的会话内容，生成摘要并写入知识库。实现位于 `scripts/digest.py` 与技能 `kb-digest`。
+
+### 功能面板
+
+输入框右侧的「功能」按钮，集中展示各开关与运行状态。
+
 ## 安装
 
+两种安装方式：
+
 ```bash
+# 方式一：从 GitHub 源安装
 dsh plugin add github:hyyzero/dsh-deeptutor-study
 ```
+
+```powershell
+# 方式二：使用仓库根目录的安装脚本（装包、复制技能、写环境变量）
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+桌面版的 CLI 可能拒绝直接管理 profile，此时改用 Harness 界面中的「包名或自定义安装源」输入框。
 
 重启 DSH 后：
 
@@ -114,11 +140,14 @@ DeepSeek 不提供 embedding 接口，因此知识库检索使用本地模型：
 ├── lib/index.js            # 宿主：三条路由与运行时指针
 ├── client/client.js        # 两个侧栏页面，无构建步骤
 ├── skills/study-flow/      # 交互协议
+├── install.ps1             # 装机脚本：装包、复制技能、写环境变量
 ├── scripts/
 │   ├── setup.ps1           # 环境准备，幂等
 │   ├── configure.py        # 生成 DeepTutor 的模型配置
 │   ├── embed_server.py     # 本地向量服务
 │   ├── bookctl.py          # 书籍生成封装
+│   ├── digest.py           # 会话总结入库
+│   ├── session-tool.py     # 读取会话记录
 │   ├── viz-template.html   # 交互网页模板
 │   └── install-skills.ps1
 ├── examples/kb/            # 示例知识库

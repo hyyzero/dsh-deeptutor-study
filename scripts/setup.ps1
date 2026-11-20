@@ -64,7 +64,7 @@ else {
 
 Step '安装 DeepTutor（可能需要几分钟）'
 & $Python -m pip install --disable-pip-version-check --upgrade pip -i $Mirror | Out-Null
-& $Python -m pip install --disable-pip-version-check -i $Mirror 'deeptutor==1.7.2' 'deeptutor-books==1.7.2' 'fastembed>=0.3'
+& $Python -m pip install --disable-pip-version-check -i $Mirror 'deeptutor==1.7.2' 'deeptutor-books==1.7.2' 'fastembed>=0.3' 'zstandard'
 if ($LASTEXITCODE -ne 0) { Fail '依赖安装失败。换成别的镜像重试：-Mirror https://mirrors.aliyun.com/pypi/simple' }
 Info '依赖装好了'
 
