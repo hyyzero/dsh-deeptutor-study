@@ -3387,7 +3387,6 @@ window.__ModuleLoader__.load({
                   'div',
                   { style: styles.panelBody },
                   h(DigestSection, null),
-                  h(VmSection, null),
                   h(SetupSection, null),
                   h(
                     Section,
