@@ -1,14 +1,14 @@
 # dsh-deeptutor-study
 
-把 DeepTutor 的学习能力接进 DeepSeek Harness：一个 agent 预设、两个侧栏页面、若干脚本。
+把 DeepTutor 的学习能力接进 DeepSeek Harness：一个 agent 预设、三个侧栏页面、若干脚本。
 
-非官方项目，与 DeepTutor 团队、DeepSeek 均无隶属关系。
+由 [hyyzero](https://github.com/hyyzero) 与 SKADI03 维护，MIT 许可。
 
 ## 功能
 
 ### 学习动作
 
-加载「学习模式」预设后，DSH 多出一组 `deeptutor_*` 工具，并附带一套交互约定：学习类请求先给出动作菜单，参数用选项询问，不要求输入命令。
+加载「学习模式」预设后，DSH 多出一组 `deeptutor_*` 工具，并附带一套交互约定：学习类请求先给出动作菜单，参数通过选项选择。
 
 | 动作 | 说明 |
 |---|---|
@@ -31,7 +31,7 @@
 
 - 列出全部知识库：文档数、索引块数、向量模型、默认库标记
 - 新建：指定名称与文档目录，后台索引，展示进度与日志
-- 创建空库：只登记文件夹，稍后放入文档再点索引
+- 创建空库：登记文件夹并建立记录，放入文档后再点索引
 - 文件夹选择与统计，删除后可在回收站恢复
 - 改名、删除、设为默认
 - 展开查看库内文档；文本类可页内预览，其余用系统程序打开
@@ -106,7 +106,7 @@ DeepSeek 不提供 embedding 接口，因此知识库检索使用本地模型：
 | `books/<书名>.md` | 导出的书籍 |
 | `viz/<主题>.html` | 生成的可交互动画 |
 
-`.dsh-study/env.json` 由插件维护，记录了插件根目录、Python 解释器、脚本与模板位置；技能与 agent 据此定位脚本，不建议手工修改。
+`.dsh-study/env.json` 由插件维护，记录了插件根目录、Python 解释器、脚本与模板位置；技能与 agent 据此定位脚本；插件启动时会重写该文件。
 
 错题本结构：
 
@@ -138,7 +138,7 @@ DeepSeek 不提供 embedding 接口，因此知识库检索使用本地模型：
 ├── package.json
 ├── cordis.patch.yml        # 注册宿主插件与学习模式预设
 ├── lib/index.js            # 宿主：三条路由与运行时指针
-├── client/client.js        # 两个侧栏页面，无构建步骤
+├── client/client.js        # 三个侧栏页面，无构建步骤
 ├── skills/study-flow/      # 交互协议
 ├── install.ps1             # 装机脚本：装包、复制技能、写环境变量
 ├── scripts/
@@ -156,9 +156,9 @@ DeepSeek 不提供 embedding 接口，因此知识库检索使用本地模型：
 
 ## 与 DeepTutor 的关系
 
-插件不修改 DeepTutor，只做三件事：
+插件通过三种方式使用 DeepTutor：
 
-1. 调用其 CLI：只读命令直接执行，写入类命令需要确认，交互式命令一律拒绝
+1. 调用其 CLI：只读命令直接执行，写入类命令需要确认，交互式命令交给用户在终端运行
 2. 读取其配置与知识库目录
 3. 通过 `BookEngine` 生成书（CLI 未提供创作命令，因此绕过 FastAPI）
 
@@ -180,7 +180,7 @@ DeepTutor 版本锁定为 `1.7.2`。`BookEngine` 属于内部模块，版本升�
 git clone https://github.com/hyyzero/dsh-deeptutor-study
 node --check lib/index.js
 node --check client/client.js
-npm run probe           # 以桩状态渲染两个页面，检查注册与文案
+npm run probe           # 以桩状态渲染三个页面，检查注册与文案
 ```
 
 客户端页面无打包步骤，DSH 直接加载 `client/client.js`，修改后重启 DSH 生效。
