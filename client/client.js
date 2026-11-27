@@ -3364,8 +3364,11 @@ window.__ModuleLoader__.load({
          */
         const onMouseUp = (event) => {
           if (event.button !== 0) return
-          const onOurUi = event.target instanceof Element && !!event.target.closest('[' + UI_ATTR + ']')
-          if (fabPressed || onOurUi) {
+          // 只有「按在浮条上」才算打开面板；按在面板或待发送栏里不能重开，
+          // 否则会把刚打的字清掉（openPanel 会重置输入框）。
+          const onFabTarget =
+            event.target instanceof Element && (event.target === fab || fab.contains(event.target))
+          if (fabPressed || onFabTarget) {
             fabPressed = false
             openPanel(captured || lastPassage)
             return
