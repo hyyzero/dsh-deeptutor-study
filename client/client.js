@@ -2951,9 +2951,9 @@ window.__ModuleLoader__.load({
 .askq-card footer{display:flex;align-items:center;gap:8px;padding:8px 12px;
   border-top:1px solid rgba(255,255,255,.10);font-size:11px;color:var(--text-3,#8b93a3)}
 .askq-card footer .grow{flex:1}
-::highlight(askq){background-color:rgba(126,140,255,.20);
+::highlight(askq){background-color:rgba(126,140,255,.26);
   text-decoration:underline 2px rgba(126,140,255,.85);text-underline-offset:3px}
-::highlight(askq-pending){background-color:rgba(255,198,10,.24);
+::highlight(askq-pending){background-color:rgba(255,198,10,.30);
   text-decoration:underline 2px rgba(232,170,0,.9);text-underline-offset:3px}
 `
 
