@@ -3190,6 +3190,7 @@ window.__ModuleLoader__.load({
               hideFab()
               return
             }
+            askScope.setPreset(presetOf(sessionId))
             if (!askScope.allows()) {
               hideFab()
               return
@@ -3257,6 +3258,7 @@ window.__ModuleLoader__.load({
           input.value = ''
           errorBox.style.display = 'none'
           panel.hidden = false
+          panel.style.display = ''
           if (range) {
             const rects = range.getClientRects()
             const last = rects[rects.length - 1] || range.getBoundingClientRect()
@@ -3451,15 +3453,23 @@ window.__ModuleLoader__.load({
           try {
             const binding = id ? ctx.sessions.binding(id) : null
             const session = binding && binding.session
-            const snap = session && typeof session.getSnapshot === 'function' ? session.getSnapshot() : null
-            if (!snap) return null
-            const projections = snap.projections
-            const value =
-              projections && typeof projections.get === 'function' ? projections.get('agentPreset') : undefined
-            if (typeof value === 'string') return value
-            if (typeof snap.agentPreset === 'string') return snap.agentPreset
+            if (!session) return null
+            // 预设不在 getSnapshot() 里，而在会话的投影存储上。
+            const projections = session.projections
+            if (projections) {
+              if (typeof projections.get === 'function') {
+                const value = projections.get('agentPreset')
+                if (typeof value === 'string') return value
+              }
+              if (typeof projections.values === 'function') {
+                const value = projections.values().agentPreset
+                if (typeof value === 'string') return value
+              }
+            }
+            const snap = typeof session.getSnapshot === 'function' ? session.getSnapshot() : null
+            if (snap && typeof snap.agentPreset === 'string') return snap.agentPreset
           } catch {
-            /* 投影不可读就当未知 */
+            /* 读不到就算未知 */
           }
           return null
         }
