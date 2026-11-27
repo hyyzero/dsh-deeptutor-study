@@ -3047,6 +3047,26 @@ window.__ModuleLoader__.load({
 .askq-card footer{display:flex;align-items:center;gap:8px;padding:8px 12px;
   border-top:1px solid rgba(255,255,255,.10);font-size:11px;color:var(--text-3,#8b93a3)}
 .askq-card footer .grow{flex:1}
+.askq-stage{position:fixed;right:20px;bottom:96px;z-index:2147481999;width:360px;
+  display:none;flex-direction:column;gap:8px;padding:10px 12px;box-sizing:border-box;
+  font:13px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+  color:var(--text-1,#e8eaf0);background:var(--surface-2,#20242c);
+  border:1px solid rgba(255,255,255,.14);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.38)}
+.askq-stage *{box-sizing:border-box}
+.askq-stage header{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2,#b9bfcd)}
+.askq-stage header .grow{flex:1}
+.askq-stage header button{border:0;background:transparent;color:var(--text-3,#8b93a3);cursor:pointer;font:inherit}
+.askq-stage .rows{display:flex;flex-direction:column;gap:6px;max-height:32vh;overflow:auto}
+.askq-stage .row{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border-radius:8px;
+  background:rgba(255,198,10,.08);border-left:2px solid rgba(232,170,0,.6)}
+.askq-stage .badge{font-size:11px;color:#d9a400;min-width:14px}
+.askq-stage .text{flex:1;min-width:0}
+.askq-stage .q{font-size:12px;color:var(--text-3,#8b93a3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.askq-stage .n{font-size:12.5px}
+.askq-stage .del{border:0;background:transparent;color:var(--text-3,#8b93a3);cursor:pointer;font-size:14px;line-height:1}
+.askq-stage .overall{width:100%;padding:6px 8px;border-radius:7px;border:1px solid rgba(255,255,255,.16);
+  background:rgba(0,0,0,.24);color:inherit;font:inherit;outline:none}
+.askq-stage footer{display:flex;justify-content:flex-end}
 ::highlight(askq){background-color:rgba(126,140,255,.26);
   text-decoration:underline 2px rgba(126,140,255,.85);text-underline-offset:3px}
 ::highlight(askq-pending){background-color:rgba(255,198,10,.30);
@@ -3073,8 +3093,12 @@ window.__ModuleLoader__.load({
           return () => style.remove()
         }, 'ask-select: stylesheet')
 
-        /** 已提问过的段落。 */
-        const marked = []
+        /** 已经在旁路会话里问过的段落（只在本次会话内记忆）。 */
+        const answered = []
+        /** 攒着还没发的疑问，按会话持久化。 */
+        let staged = []
+        /** 整体补充，跟条目一起发。 */
+        let overall = ''
         /** 正在提问、面板还开着的那一段。 */
         let pending = null
         let frame = 0
@@ -3084,14 +3108,20 @@ window.__ModuleLoader__.load({
           const reg = registry()
           if (!reg) return
           const done = []
-          for (const item of marked) {
+          for (const item of answered) {
             const range = rangeFor(item)
             if (range) done.push(range)
           }
-          const active = pending ? rangeFor(pending) : null
+          const active = []
+          for (const item of staged) {
+            const range = rangeFor(item)
+            if (range) active.push(range)
+          }
+          const opening = pending ? rangeFor(pending) : null
+          if (opening) active.push(opening)
           if (done.length) reg.set(HL_DONE, new Highlight(...done))
           else reg.delete(HL_DONE)
-          if (active) reg.set(HL_PENDING, new Highlight(active))
+          if (active.length) reg.set(HL_PENDING, new Highlight(...active))
           else reg.delete(HL_PENDING)
           if (!fab.hidden) refreshFab()
         }
@@ -3139,9 +3169,9 @@ window.__ModuleLoader__.load({
           '<div class="askq-quote"></div>' +
           '<textarea class="askq-input" placeholder="你想问这一段什么？"></textarea>' +
           '<div class="askq-row">' +
-          '<span class="askq-hint">Enter 发送 · Shift+Enter 换行 · Esc 取消</span>' +
+          '<span class="askq-hint">Enter 加入 · Shift+Enter 换行 · Esc 取消</span>' +
           '<button type="button" class="askq-btn" data-act="cancel">取消</button>' +
-          '<button type="button" class="askq-btn" data-act="merge">合并回答</button>' +
+          '<button type="button" class="askq-btn" data-act="stage">加入待发送</button>' +
           '<button type="button" class="askq-btn primary" data-act="side">单独回答</button>' +
           '</div>' +
           '<div class="askq-err"></div>'
@@ -3471,11 +3501,11 @@ window.__ModuleLoader__.load({
         input.addEventListener('keydown', (event) => {
           if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault()
-            void submit('merge')
+            void submit('stage')
           }
         })
 
-        panel.querySelector('[data-act="merge"]').addEventListener('click', () => void submit('merge'))
+        panel.querySelector('[data-act="stage"]').addEventListener('click', () => void submit('stage'))
         panel.querySelector('[data-act="side"]').addEventListener('click', () => void submit('side'))
 
         /* ------------------------------------------------------ 两个去处 */
@@ -3627,19 +3657,177 @@ window.__ModuleLoader__.load({
             return
           }
           const { quote, rowKey, index } = passage
-          const text = composeQuestion(quote, question)
-          marked.push({ rowKey, quote, index })
-          if (marked.length > MAX_MARKED) marked.splice(0, marked.length - MAX_MARKED)
+          if (mode === 'side') {
+            const text = composeQuestion(quote, question)
+            pending = null
+            hidePanel()
+            window.getSelection()?.removeAllRanges()
+            answered.push({ rowKey, quote, index })
+            if (answered.length > MAX_MARKED) answered.splice(0, answered.length - MAX_MARKED)
+            schedulePaint()
+            try {
+              await askAside(text, quote)
+            } catch (error) {
+              showError(error && error.message ? error.message : String(error))
+              panel.hidden = false
+              panel.style.display = 'block'
+            }
+            return
+          }
+          // 只入队，交给「待发送」那一栏一起发
+          staged.push({ id: Date.now() + Math.random(), rowKey, quote, index, note: question })
           pending = null
-          schedulePaint()
           hidePanel()
           window.getSelection()?.removeAllRanges()
+          saveStage()
+          renderStage()
+          schedulePaint()
+        }
+
+        /* ------------------------------------------------- 攒批注 */
+
+        const stageKey = () => 'dsh-ask:stage:v1:' + (sessionId || 'anonymous')
+
+        const saveStage = () => {
           try {
-            if (mode === 'side') await askAside(text, quote)
-            else await askHere(text)
+            window.localStorage.setItem(stageKey(), JSON.stringify({ items: staged, overall }))
+          } catch {
+            /* 存不了就只在内存里攒 */
+          }
+        }
+
+        const loadStage = () => {
+          try {
+            const raw = window.localStorage.getItem(stageKey())
+            if (!raw) return
+            const parsed = JSON.parse(raw)
+            if (Array.isArray(parsed.items)) {
+              staged = parsed.items.filter((item) => item && typeof item.quote === 'string' && typeof item.rowKey === 'string')
+            }
+            if (typeof parsed.overall === 'string') overall = parsed.overall
+          } catch {
+            /* 坏数据就当没有 */
+          }
+        }
+
+        const quoteBlock = (text) =>
+          String(text || '')
+            .trim()
+            .split(/\r?\n/)
+            .filter((line) => line.trim().length > 0)
+            .map((line) => '> ' + line)
+            .join('\n')
+
+        /** 按 dsh-markup 的批注格式拼一条消息。 */
+        const composeStaged = () => {
+          const head =
+            '【我有疑问】我把你上一条回复当材料，标了 ' +
+            staged.length +
+            ' 处想问的地方。请按编号逐条回答，每条以「问题 N：」开头，不要合并，也不要遗漏。'
+          const blocks = staged.map((item, i) =>
+            ['批注 ' + (i + 1) + '｜疑问', quoteBlock(item.quote), '问题：' + item.note].join('\n'),
+          )
+          const parts = [head, ...blocks]
+          if (overall.trim()) parts.push('整体补充：' + overall.trim())
+          return parts.join('\n\n') + '\n【/我有疑问】'
+        }
+
+        const stageBar = document.createElement('div')
+        stageBar.className = 'askq-stage'
+        stageBar.setAttribute(UI_ATTR, 'stage')
+        stageBar.hidden = true
+        stageBar.innerHTML =
+          '<header><span>待提问 <b class="count">0</b> 条</span><span class="grow"></span>' +
+          '<button type="button" data-act="clear">清空</button></header>' +
+          '<div class="rows"></div>' +
+          '<input class="overall" placeholder="整体补充（可选）">' +
+          '<footer><button type="button" class="askq-btn primary" data-act="send">一起发送</button></footer>'
+        document.body.appendChild(stageBar)
+
+        const stageRows = stageBar.querySelector('.rows')
+        const stageCount = stageBar.querySelector('.count')
+        const overallInput = stageBar.querySelector('.overall')
+
+        ctx.effect(
+          () => () => stageBar.remove(),
+          'ask-select: stage bar',
+        )
+
+        const renderStage = () => {
+          const count = staged.length
+          stageBar.hidden = count === 0 && !overall.trim()
+          stageBar.style.display = stageBar.hidden ? 'none' : 'flex'
+          stageCount.textContent = String(count)
+          stageBar.querySelector('[data-act="send"]').textContent = count > 0 ? '一起发送（' + count + '）' : '一起发送'
+          stageRows.textContent = ''
+          staged.forEach((item, i) => {
+            const row = document.createElement('div')
+            row.className = 'row'
+            const badge = document.createElement('span')
+            badge.className = 'badge'
+            badge.textContent = String(i + 1)
+            const body = document.createElement('div')
+            body.className = 'text'
+            const quoteLine = document.createElement('div')
+            quoteLine.className = 'q'
+            quoteLine.textContent = briefly(item.quote, 60)
+            const noteLine = document.createElement('div')
+            noteLine.className = 'n'
+            noteLine.textContent = item.note
+            body.appendChild(quoteLine)
+            body.appendChild(noteLine)
+            const del = document.createElement('button')
+            del.type = 'button'
+            del.className = 'del'
+            del.title = '移除这一条'
+            del.textContent = '×'
+            del.addEventListener('click', () => {
+              staged = staged.filter((x) => x.id !== item.id)
+              saveStage()
+              renderStage()
+              schedulePaint()
+            })
+            row.appendChild(badge)
+            row.appendChild(body)
+            row.appendChild(del)
+            stageRows.appendChild(row)
+          })
+          if (document.activeElement !== overallInput) overallInput.value = overall
+        }
+
+        overallInput.addEventListener('input', () => {
+          overall = overallInput.value
+          saveStage()
+        })
+
+        stageBar.querySelector('[data-act="clear"]').addEventListener('click', () => {
+          staged = []
+          overall = ''
+          overallInput.value = ''
+          saveStage()
+          renderStage()
+          schedulePaint()
+        })
+
+        stageBar.querySelector('[data-act="send"]').addEventListener('click', () => {
+          void sendStaged()
+        })
+
+        /** 一起发送：拼一条消息走输入框，同 dsh-markup。 */
+        async function sendStaged() {
+          if (staged.length === 0 && !overall.trim()) return
+          const text = composeStaged()
+          staged = []
+          overall = ''
+          overallInput.value = ''
+          saveStage()
+          renderStage()
+          schedulePaint()
+          try {
+            await askHere(text)
           } catch (error) {
-            showError(error && error.message ? error.message : String(error))
-            panel.hidden = false
+            const message = error && error.message ? error.message : String(error)
+            diagnose('发送失败：' + message)
           }
         }
 
@@ -3687,6 +3875,11 @@ window.__ModuleLoader__.load({
               inject: (id) => {
                 sessionId = id ? String(id) : null
                 askScope.setPreset(presetOf(sessionId))
+                staged = []
+                overall = ''
+                loadStage()
+                renderStage()
+                schedulePaint()
                 return {}
               },
             },
