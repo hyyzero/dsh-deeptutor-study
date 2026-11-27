@@ -20,6 +20,62 @@
 window.__ModuleLoader__.load({
   id: 'dsh-deeptutor-study',
   factory(require) {
+    /**
+     * 「选段提问」的作用范围：只在学习模式出现，还是所有会话都出现。
+     * 功能本体和「功能」面板里的选择器共用一个状态，避免两处读到的值不一样。
+     * 读不到当前预设时按「全局可用」处理，宁可多显示也不要静默失效。
+     */
+    const askScope = (function () {
+      const KEY = 'dsh-study:ask-scope'
+      const VALID = ['study', 'all']
+      const listeners = new Set()
+      let scope = 'study'
+      let preset = null
+      try {
+        const raw = window.localStorage.getItem(KEY)
+        if (VALID.indexOf(raw) >= 0) scope = raw
+      } catch {
+        /* 存不了就用默认值 */
+      }
+      const emit = () => {
+        for (const fn of listeners) {
+          try {
+            fn(scope)
+          } catch {
+            /* 单个订阅者出错不该影响其他订阅者 */
+          }
+        }
+      }
+      return {
+        get: () => scope,
+        set(next) {
+          scope = VALID.indexOf(next) >= 0 ? next : 'study'
+          try {
+            window.localStorage.setItem(KEY, scope)
+          } catch {
+            /* ignore */
+          }
+          emit()
+        },
+        preset: () => preset,
+        setPreset(value) {
+          if (preset === value) return
+          preset = value
+          emit()
+        },
+        /** 当前会话能不能用这个功能。 */
+        allows() {
+          if (scope === 'all') return true
+          if (preset === null) return true
+          return preset === 'study'
+        },
+        subscribe(fn) {
+          listeners.add(fn)
+          return () => listeners.delete(fn)
+        },
+      }
+    })()
+
     const wrongbook = (function (require) {
 
     const React = require('react')
@@ -2697,6 +2753,689 @@ window.__ModuleLoader__.load({
     })(require)
 
 
+    /**
+     * 「选段提问」：选中回复里的一段文字，浮条上只有「我有疑问」，可以合并进
+     * 当前会话回答，也可以开一个旁路会话单独回答。
+     *
+     * 高亮沿用 dsh-markup 的做法：不改 DOM，写入 CSS Custom Highlight 注册表，
+     * 重渲染后按「忽略空白」的文本匹配重建 Range。比 markup 多一步：记录这是
+     * 同一段文字的第几次出现，避免在一行里重复出现的句子上标错地方。
+     */
+    const askselect = (function () {
+      /** 消息行的行属性，用来把选区归到某一条回复。 */
+      const ROW_ATTR = 'data-chat-flow-key'
+      /** 已提问段落的 highlight 名。 */
+      const HL_DONE = 'askq'
+      /** 正在提问的那一段，用更醒目的颜色。 */
+      const HL_PENDING = 'askq-pending'
+      /** 标记本插件自己的 DOM，选择处理时跳过。 */
+      const UI_ATTR = 'data-askq-ui'
+      /** 最多保留多少条高亮，避免长会话里无限累积。 */
+      const MAX_MARKED = 20
+
+      const textOf = (blocks) =>
+        (Array.isArray(blocks) ? blocks : [])
+          .filter((b) => b && (b.kind === 'text' || b.type === 'text') && typeof b.text === 'string')
+          .map((b) => b.text)
+          .join('\n')
+
+      const asElement = (node) => (node ? (node.nodeType === 1 ? node : node.parentElement) : null)
+
+      const registry = () => {
+        const css = globalThis.CSS
+        return css && css.highlights && typeof Highlight !== 'undefined' ? css.highlights : null
+      }
+
+      const rowKeyOf = (node) => {
+        const el = asElement(node)
+        const row = el && el.closest('[' + ROW_ATTR + ']')
+        return row ? row.getAttribute(ROW_ATTR) : null
+      }
+
+      const proseOf = (node) => {
+        const el = asElement(node)
+        return el ? el.closest('[class*="markdown"]') : null
+      }
+
+      const rowElement = (rowKey) => {
+        if (!rowKey) return null
+        try {
+          return document.querySelector('[' + ROW_ATTR + '="' + CSS.escape(rowKey) + '"]')
+        } catch {
+          return null
+        }
+      }
+
+      /** 把一行正文摊平成「无空白字符串 + 字符到节点的映射」。 */
+      const flatten = (root) => {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+        let flat = ''
+        const map = []
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          const parent = n.parentElement
+          if (parent && parent.closest('script,style,[' + UI_ATTR + ']')) continue
+          const text = n.data
+          for (let i = 0; i < text.length; i++) {
+            if (/\s/.test(text[i])) continue
+            flat += text[i]
+            map.push({ node: n, offset: i })
+          }
+        }
+        return { flat, map }
+      }
+
+      /** 这段文字在摊平文本里的所有起点，从前往后。 */
+      const startsOf = (flat, quote) => {
+        const target = String(quote || '').replace(/\s+/g, '')
+        if (!target) return []
+        const out = []
+        let at = flat.indexOf(target)
+        while (at >= 0) {
+          out.push(at)
+          at = flat.indexOf(target, at + target.length)
+        }
+        return out
+      }
+
+      /** 选区的起点在摊平文本里的位置，用来判断它是第几次出现。 */
+      const flatOffsetOf = (root, node, offset) => {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+        let count = 0
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          if (n === node) {
+            for (let i = 0; i < offset && i < n.data.length; i++) if (!/\s/.test(n.data[i])) count += 1
+            return count
+          }
+          for (let i = 0; i < n.data.length; i++) if (!/\s/.test(n.data[i])) count += 1
+        }
+        return -1
+      }
+
+      const rangeAt = (map, start, length) => {
+        const from = map[start]
+        const to = map[start + length - 1]
+        if (!from || !to) return null
+        const range = document.createRange()
+        range.setStart(from.node, from.offset)
+        range.setEnd(to.node, to.offset + 1)
+        return range
+      }
+
+      /** 按「第 index 次出现」重建一条 Range。 */
+      const rangeFor = (item) => {
+        const row = rowElement(item.rowKey)
+        if (!row) return null
+        const { flat, map } = flatten(row)
+        const target = String(item.quote || '').replace(/\s+/g, '')
+        const starts = startsOf(flat, target)
+        if (starts.length === 0) return null
+        const at = starts[Math.min(item.index || 0, starts.length - 1)]
+        return rangeAt(map, at, target.length)
+      }
+
+      const briefly = (text, max) => {
+        const flat = String(text || '').replace(/\s+/g, ' ').trim()
+        return flat.length > max ? flat.slice(0, max) + '…' : flat
+      }
+
+      const makeToken = () => '【疑问 ' + Math.random().toString(36).slice(2, 6) + '】'
+
+      const composeQuestion = (quote, question) =>
+        [
+          '关于上面这段内容：',
+          String(quote || '')
+            .split('\n')
+            .map((line) => '> ' + line)
+            .join('\n'),
+          '',
+          question,
+        ].join('\n')
+
+      /** 取旁路会话里属于本次提问那一段的助手文字。 */
+      const readAnswer = (target, token) => {
+        if (!target) return ''
+        const snap = target.getSnapshot()
+        if (!snap) return ''
+        const order = Array.isArray(snap.order) ? snap.order : []
+        const nodes = order.map((key) => snap.nodes.get(key)).filter(Boolean)
+        const at = nodes.findIndex((n) => n.kind === 'user' && textOf(n.data && n.data.content).includes(token))
+        if (at < 0) return ''
+        const parts = []
+        for (let i = at + 1; i < nodes.length; i++) {
+          const node = nodes[i]
+          if (node.kind === 'user' || node.kind === 'turn-tail') break
+          if (node.kind === 'assistant-step') {
+            const text = textOf(node.data && node.data.blocks)
+            if (text) parts.push(text)
+          }
+        }
+        return parts.join('\n\n')
+      }
+
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+      const STYLE = `
+.askq-fab,.askq-panel,.askq-card{position:fixed;z-index:2147482000;box-sizing:border-box;
+  font:13px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+  color:var(--text-1,#e8eaf0);background:var(--surface-2,#20242c);
+  border:1px solid rgba(255,255,255,.14);border-radius:10px;
+  box-shadow:0 10px 30px rgba(0,0,0,.38)}
+.askq-fab{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;cursor:pointer;
+  border-color:rgba(126,140,255,.55);background:var(--surface-3,#252a34)}
+.askq-fab:hover{border-color:rgba(126,140,255,.95)}
+.askq-fab .dot{width:6px;height:6px;border-radius:50%;background:#8a90ff}
+.askq-panel{width:380px;padding:12px}
+.askq-quote{padding:8px 10px;margin-bottom:10px;border-radius:8px;max-height:96px;overflow:auto;
+  background:rgba(255,198,10,.10);border-left:3px solid rgba(232,170,0,.75);
+  color:var(--text-2,#b9bfcd)}
+.askq-input{width:100%;min-height:74px;resize:vertical;padding:8px 10px;border-radius:8px;
+  border:1px solid rgba(255,255,255,.16);background:rgba(0,0,0,.24);color:inherit;
+  font:inherit;outline:none}
+.askq-input:focus{border-color:rgba(126,140,255,.85)}
+.askq-row{display:flex;align-items:center;gap:8px;margin-top:10px}
+.askq-hint{flex:1;color:var(--text-3,#8b93a3);font-size:11px}
+.askq-btn{padding:5px 11px;border-radius:7px;cursor:pointer;font:inherit;
+  border:1px solid rgba(255,255,255,.18);background:transparent;color:inherit}
+.askq-btn:hover{background:rgba(255,255,255,.08)}
+.askq-btn.primary{border-color:rgba(126,140,255,.9);background:rgba(126,140,255,.18)}
+.askq-err{margin-top:8px;color:#ff8b8b;font-size:12px;display:none}
+.askq-card{right:20px;top:76px;width:420px;max-height:calc(100vh - 140px);display:flex;flex-direction:column}
+.askq-card header{display:flex;align-items:center;gap:8px;padding:10px 12px;
+  border-bottom:1px solid rgba(255,255,255,.10);font-weight:600}
+.askq-card header .sub{flex:1;font-weight:400;font-size:11px;color:var(--text-3,#8b93a3)}
+.askq-card header button{border:0;background:transparent;color:inherit;cursor:pointer;font-size:16px;line-height:1}
+.askq-card .quote{margin:10px 12px 0;padding:8px 10px;border-radius:8px;max-height:80px;overflow:auto;
+  background:rgba(255,198,10,.10);border-left:3px solid rgba(232,170,0,.75);
+  color:var(--text-2,#b9bfcd);font-size:12px}
+.askq-card .body{flex:1;overflow:auto;padding:12px;white-space:pre-wrap;word-break:break-word}
+.askq-card footer{display:flex;align-items:center;gap:8px;padding:8px 12px;
+  border-top:1px solid rgba(255,255,255,.10);font-size:11px;color:var(--text-3,#8b93a3)}
+.askq-card footer .grow{flex:1}
+::highlight(askq){background-color:rgba(126,140,255,.20);
+  text-decoration:underline 2px rgba(126,140,255,.85);text-underline-offset:3px}
+::highlight(askq-pending){background-color:rgba(255,198,10,.24);
+  text-decoration:underline 2px rgba(232,170,0,.9);text-underline-offset:3px}
+`
+
+      function apply(ctx) {
+        /**
+         * 这三个服务来自 DSH 客户端运行时。用 ctx.inject 等它们就绪：万一某个服务
+         * 没提供，只有「选段提问」不出现，不会把插件里其他面板一起拖下水。
+         */
+        if (typeof ctx.inject === 'function') {
+          ctx.inject(['sessions', 'uiConversation', 'workspaces'], (scoped) => start(scoped))
+          return
+        }
+        start(ctx)
+      }
+
+      function start(ctx) {
+        ctx.effect(() => {
+          const style = document.createElement('style')
+          style.textContent = STYLE
+          document.head.appendChild(style)
+          return () => style.remove()
+        }, 'ask-select: stylesheet')
+
+        /** 已提问过的段落。 */
+        const marked = []
+        /** 正在提问、面板还开着的那一段。 */
+        let pending = null
+        let frame = 0
+
+        const paint = () => {
+          frame = 0
+          const reg = registry()
+          if (!reg) return
+          const done = []
+          for (const item of marked) {
+            const range = rangeFor(item)
+            if (range) done.push(range)
+          }
+          const active = pending ? rangeFor(pending) : null
+          if (done.length) reg.set(HL_DONE, new Highlight(...done))
+          else reg.delete(HL_DONE)
+          if (active) reg.set(HL_PENDING, new Highlight(active))
+          else reg.delete(HL_PENDING)
+        }
+
+        const schedulePaint = () => {
+          if (frame) return
+          frame = requestAnimationFrame(paint)
+        }
+
+        ctx.effect(() => {
+          const observer = new MutationObserver(schedulePaint)
+          observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+          window.addEventListener('resize', schedulePaint)
+          return () => {
+            observer.disconnect()
+            window.removeEventListener('resize', schedulePaint)
+            if (frame) cancelAnimationFrame(frame)
+            const reg = registry()
+            if (reg) {
+              reg.delete(HL_DONE)
+              reg.delete(HL_PENDING)
+            }
+          }
+        }, 'ask-select: highlight tracking')
+
+        /* ------------------------------------------------------------ UI */
+
+        const fab = document.createElement('button')
+        fab.type = 'button'
+        fab.className = 'askq-fab'
+        fab.setAttribute(UI_ATTR, 'fab')
+        fab.innerHTML = '<span class="dot"></span>我有疑问'
+        fab.hidden = true
+        document.body.appendChild(fab)
+
+        const panel = document.createElement('div')
+        panel.className = 'askq-panel'
+        panel.setAttribute(UI_ATTR, 'panel')
+        panel.hidden = true
+        panel.innerHTML =
+          '<div class="askq-quote"></div>' +
+          '<textarea class="askq-input" placeholder="你想问这一段什么？"></textarea>' +
+          '<div class="askq-row">' +
+          '<span class="askq-hint">Enter 发送 · Shift+Enter 换行 · Esc 取消</span>' +
+          '<button type="button" class="askq-btn" data-act="cancel">取消</button>' +
+          '<button type="button" class="askq-btn" data-act="merge">合并回答</button>' +
+          '<button type="button" class="askq-btn primary" data-act="side">单独回答</button>' +
+          '</div>' +
+          '<div class="askq-err"></div>'
+        document.body.appendChild(panel)
+
+        const quoteBox = panel.querySelector('.askq-quote')
+        const input = panel.querySelector('.askq-input')
+        const errorBox = panel.querySelector('.askq-err')
+
+        ctx.effect(
+          () => () => {
+            fab.remove()
+            panel.remove()
+          },
+          'ask-select: dom',
+        )
+
+        let captured = null
+        let sessionId = null
+        let sideCard = null
+        let sideChild = null
+        /** 这一次按下鼠标后，选区有没有真的变过。 */
+        let selectionMoved = false
+
+        const hideFab = () => {
+          fab.hidden = true
+        }
+
+        const hidePanel = () => {
+          const wasOpen = !panel.hidden
+          panel.hidden = true
+          errorBox.style.display = 'none'
+          errorBox.textContent = ''
+          if (wasOpen) {
+            pending = null
+            schedulePaint()
+          }
+        }
+
+        const showError = (text) => {
+          errorBox.textContent = text
+          errorBox.style.display = 'block'
+        }
+
+        /**
+         * 浮条放在选区末尾而不是开头：既贴着手停留的位置，也不会压在别的
+         * 插件（例如 dsh-markup）的选区工具条上。
+         */
+        const place = (element, range) => {
+          const rects = range.getClientRects()
+          const last = rects[rects.length - 1] || range.getBoundingClientRect()
+          const width = element.offsetWidth
+          const height = element.offsetHeight
+          const preferred = last.right - width
+          const left = Math.min(Math.max(8, preferred), Math.max(8, window.innerWidth - width - 8))
+          let top = last.top - height - 8
+          if (top < 8) top = last.bottom + 8
+          element.style.left = Math.round(left) + 'px'
+          element.style.top = Math.round(top) + 'px'
+        }
+
+        /** 选区落在正文里、且有内容，才算一次可以提问的选择。 */
+        const capture = () => {
+          const selection = window.getSelection()
+          if (!selection || selection.isCollapsed || selection.rangeCount === 0) return null
+          const range = selection.getRangeAt(0)
+          if (!proseOf(range.startContainer) || !proseOf(range.endContainer)) return null
+          const rowKey = rowKeyOf(range.startContainer)
+          if (!rowKey) return null
+          const quote = selection.toString().trim()
+          if (!quote) return null
+          const row = rowElement(rowKey)
+          let index = 0
+          if (row) {
+            const { flat } = flatten(row)
+            const target = quote.replace(/\s+/g, '')
+            const offset = flatOffsetOf(row, range.startContainer, range.startOffset)
+            const starts = startsOf(flat, target)
+            if (starts.length > 0 && offset >= 0) {
+              let pick = 0
+              for (let i = 0; i < starts.length; i++) if (starts[i] <= offset) pick = i
+              index = pick
+            }
+          }
+          return { quote, rowKey, index, range: range.cloneRange() }
+        }
+
+        const onMouseDown = (event) => {
+          selectionMoved = false
+          if (event.target instanceof Element && event.target.closest('[' + UI_ATTR + ']')) return
+          hidePanel()
+        }
+
+        const onSelectionChange = () => {
+          selectionMoved = true
+          const selection = window.getSelection()
+          if (!selection || selection.isCollapsed) hideFab()
+        }
+
+        const onMouseUp = (event) => {
+          if (event.button !== 0) return
+          if (event.target instanceof Element && event.target.closest('[' + UI_ATTR + ']')) return
+          window.setTimeout(() => {
+            if (!selectionMoved) {
+              hideFab()
+              return
+            }
+            const found = capture()
+            if (!found) {
+              hideFab()
+              return
+            }
+            if (!askScope.allows()) {
+              hideFab()
+              return
+            }
+            captured = found
+            place(fab, found.range)
+            fab.hidden = false
+          }, 0)
+        }
+
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') return
+          hideFab()
+          hidePanel()
+        }
+
+        const onScroll = () => {
+          if (fab.hidden || !captured) return
+          const rect = captured.range.getBoundingClientRect()
+          if (rect.width === 0 && rect.height === 0) {
+            hideFab()
+            return
+          }
+          if (rect.bottom < 0 || rect.top > window.innerHeight) hideFab()
+          else place(fab, captured.range)
+        }
+
+        document.addEventListener('mousedown', onMouseDown, true)
+        document.addEventListener('mouseup', onMouseUp)
+        document.addEventListener('selectionchange', onSelectionChange)
+        document.addEventListener('keydown', onKeyDown)
+        document.addEventListener('scroll', onScroll, true)
+        window.addEventListener('resize', onScroll)
+        ctx.effect(
+          () => () => {
+            document.removeEventListener('mousedown', onMouseDown, true)
+            document.removeEventListener('mouseup', onMouseUp)
+            document.removeEventListener('selectionchange', onSelectionChange)
+            document.removeEventListener('keydown', onKeyDown)
+            document.removeEventListener('scroll', onScroll, true)
+            window.removeEventListener('resize', onScroll)
+          },
+          'ask-select: listeners',
+        )
+
+        fab.addEventListener('mousedown', (event) => event.preventDefault())
+        fab.addEventListener('click', () => {
+          if (!captured) return
+          hideFab()
+          quoteBox.textContent = briefly(captured.quote, 400)
+          input.value = ''
+          errorBox.style.display = 'none'
+          panel.hidden = false
+          const rects = captured.range.getClientRects()
+          const last = rects[rects.length - 1] || captured.range.getBoundingClientRect()
+          panel.style.left =
+            Math.round(Math.min(Math.max(8, last.left), Math.max(8, window.innerWidth - panel.offsetWidth - 8))) + 'px'
+          panel.style.top =
+            Math.round(Math.min(last.bottom + 10, window.innerHeight - panel.offsetHeight - 12)) + 'px'
+          pending = { rowKey: captured.rowKey, quote: captured.quote, index: captured.index }
+          schedulePaint()
+          input.focus()
+        })
+
+        panel.querySelector('[data-act="cancel"]').addEventListener('click', () => {
+          hidePanel()
+          window.getSelection()?.removeAllRanges()
+        })
+
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault()
+            void submit('merge')
+          }
+        })
+
+        panel.querySelector('[data-act="merge"]').addEventListener('click', () => void submit('merge'))
+        panel.querySelector('[data-act="side"]').addEventListener('click', () => void submit('side'))
+
+        /* ------------------------------------------------------ 两个去处 */
+
+        const sessionBinding = (id) => (id ? ctx.sessions.binding(id) : null)
+
+        async function askHere(text) {
+          const binding = sessionBinding(sessionId)
+          const session = binding && binding.session
+          if (!session || typeof session.prompt !== 'function') throw new Error('当前会话不可用')
+          const result = await session.prompt([{ type: 'text', text }], 'queue')
+          if (result && result.ok === false) throw new Error('发送失败：' + (result.error?.code || 'unknown'))
+        }
+
+        async function retire(child) {
+          if (!child) return
+          try {
+            const session = sessionBinding(child)?.session
+            if (session?.getSnapshot?.()?.running) {
+              await Promise.race([Promise.resolve(session.cancel()), sleep(3000)]).catch(() => {})
+              for (let i = 0; i < 20 && session.getSnapshot?.()?.running; i++) await sleep(150)
+            }
+          } catch {
+            /* 会话可能已经没了 */
+          }
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+              const result = await ctx.workspaces?.archiveSession?.(child)
+              if (!(result && result.ok === false)) return
+            } catch {
+              /* 重试几次后放弃 */
+            }
+            await sleep(600 * (attempt + 1))
+          }
+        }
+
+        function openCard(quote) {
+          sideCard?.close()
+          const card = document.createElement('div')
+          card.className = 'askq-card'
+          card.setAttribute(UI_ATTR, 'card')
+          card.innerHTML =
+            '<header><span>我有疑问 · 单独回答</span><span class="sub"></span>' +
+            '<button type="button" data-act="close" title="关闭">×</button></header>' +
+            '<div class="quote"></div><div class="body"></div>' +
+            '<footer><span class="status">正在开一个旁路会话…</span><span class="grow"></span></footer>'
+          card.querySelector('.quote').textContent = briefly(quote, 600)
+          document.body.appendChild(card)
+          const body = card.querySelector('.body')
+          const status = card.querySelector('.status')
+          const listeners = new Set()
+          let disposed = false
+          const handle = {
+            onClose(fn) {
+              listeners.add(fn)
+            },
+            text(value) {
+              if (disposed) return
+              body.textContent = value || ''
+              body.scrollTop = body.scrollHeight
+            },
+            status(value) {
+              if (disposed) return
+              status.textContent = value
+            },
+            fail(value) {
+              if (disposed) return
+              status.textContent = value
+              status.style.color = '#ff8b8b'
+            },
+            close() {
+              if (disposed) return
+              disposed = true
+              for (const fn of listeners) {
+                try {
+                  fn()
+                } catch {
+                  /* 关闭回调不该互相影响 */
+                }
+              }
+              listeners.clear()
+              card.remove()
+              if (sideCard === handle) sideCard = null
+            },
+          }
+          card.querySelector('[data-act="close"]').addEventListener('click', () => handle.close())
+          sideCard = handle
+          return handle
+        }
+
+        async function askAside(text, quote) {
+          const card = openCard(quote)
+          try {
+            if (!sessionId) throw new Error('当前会话不可用，无法开旁路会话')
+            const child = await ctx.sessions.fork({ sessionId })
+            if (!child) throw new Error('无法创建旁路会话')
+            sideChild = child
+            const retained = ctx.sessions.retain(child, { source: 'dsh-deeptutor-study' })
+            try {
+              await retained?.ready
+            } catch {
+              /* 就绪与否都不阻塞提问 */
+            }
+            const scope = ctx.sessions.scope(child)
+            const session = scope ? ctx.sessions.sessionOf(scope) : null
+            if (session && typeof session.open === 'function') await session.open()
+            const binding = sessionBinding(child)
+            Promise.resolve(binding?.session?.rename?.('疑问 · ' + briefly(quote, 18))).catch(() => {})
+            const target = ctx.uiConversation.binding(child).target('chat')
+            const token = makeToken()
+            const unsubscribe = target.subscribe(() => card.text(readAnswer(target, token)))
+            card.onClose(() => {
+              try {
+                unsubscribe?.()
+              } catch {
+                /* ignore */
+              }
+              void retire(child)
+              if (sideChild === child) sideChild = null
+            })
+            if (!binding?.session?.prompt) throw new Error('旁路会话不可用')
+            card.status('已提问，等待回答…')
+            const result = await binding.session.prompt([{ type: 'text', text: token + '\n' + text }], 'queue')
+            if (result && result.ok === false) throw new Error('发送失败：' + (result.error?.code || 'unknown'))
+            card.text(readAnswer(target, token))
+          } catch (error) {
+            card.fail(error && error.message ? error.message : String(error))
+          }
+        }
+
+        async function submit(mode) {
+          if (!captured) return
+          const question = input.value.trim()
+          if (!question) {
+            input.focus()
+            showError('先写一句你想问什么。')
+            return
+          }
+          const { quote, rowKey, index } = captured
+          const text = composeQuestion(quote, question)
+          marked.push({ rowKey, quote, index })
+          if (marked.length > MAX_MARKED) marked.splice(0, marked.length - MAX_MARKED)
+          pending = null
+          schedulePaint()
+          hidePanel()
+          window.getSelection()?.removeAllRanges()
+          try {
+            if (mode === 'side') await askAside(text, quote)
+            else await askHere(text)
+          } catch (error) {
+            showError(error && error.message ? error.message : String(error))
+            panel.hidden = false
+          }
+        }
+
+        /**
+         * 当前会话用的是哪个 Agent 预设。DSH 把预设放在会话投影
+         * `agentPreset` 里；拿不到时返回 null，选择器会显示「未识别」，
+         * 并按「全局可用」处理，避免功能静默失效。
+         */
+        const presetOf = (id) => {
+          try {
+            const binding = id ? ctx.sessions.binding(id) : null
+            const session = binding && binding.session
+            const snap = session && typeof session.getSnapshot === 'function' ? session.getSnapshot() : null
+            if (!snap) return null
+            const projections = snap.projections
+            const value =
+              projections && typeof projections.get === 'function' ? projections.get('agentPreset') : undefined
+            if (typeof value === 'string') return value
+            if (typeof snap.agentPreset === 'string') return snap.agentPreset
+          } catch {
+            /* 投影不可读就当未知 */
+          }
+          return null
+        }
+
+        /* dock 槽位是拿到当前会话 id 的官方位置，顺便把模式同步给选择器。 */
+        const SessionProbe = () => null
+        ctx.slots.inject('conversation.input.dock', () =>
+          ctx.slots.register(
+            {
+              name: 'conversation.input.dock',
+              id: 'ask-select-session',
+              order: 95,
+              inject: (id) => {
+                sessionId = id ? String(id) : null
+                askScope.setPreset(presetOf(sessionId))
+                return {}
+              },
+            },
+            SessionProbe,
+          ),
+        )
+
+        ctx.effect(
+          () => () => {
+            if (sideChild) void retire(sideChild)
+          },
+          'ask-select: side session',
+        )
+      }
+
+      return { apply }
+    })()
+
     const composer = (function (require) {
       const React = require('react')
       const h = React.createElement
@@ -3303,6 +4042,57 @@ window.__ModuleLoader__.load({
         editor.dispatchEvent(new InputEvent('input', { bubbles: true, data: prompt, inputType: 'insertText' }))
       }
 
+      function AskScopeSection() {
+        const [scope, setScope] = React.useState(() => askScope.get())
+        const [preset, setPreset] = React.useState(() => askScope.preset())
+
+        React.useEffect(
+          () =>
+            askScope.subscribe((next) => {
+              setScope(next)
+              setPreset(askScope.preset())
+            }),
+          [],
+        )
+
+        const pick = (value) => {
+          askScope.set(value)
+          setScope(value)
+        }
+        const option = (value, label) =>
+          h(
+            'button',
+            {
+              type: 'button',
+              style: { ...styles.ghost, ...(scope === value ? styles.toggleOn : null), alignSelf: 'flex-start' },
+              onClick: () => pick(value),
+            },
+            label,
+          )
+        const current = preset === null ? '未识别' : preset === 'study' ? '学习模式' : preset
+
+        return h(
+          Section,
+          { title: '选段提问', status: scope === 'all' ? '所有会话' : '仅学习模式' },
+          h(
+            'div',
+            { style: styles.note },
+            '选中回复里的一段文字，浮条上会出现「我有疑问」，可以合并进当前会话回答，也可以开一个旁路会话单独回答。',
+          ),
+          h(
+            'div',
+            { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+            option('study', scope === 'study' ? '仅学习模式 · 已选' : '仅学习模式'),
+            option('all', scope === 'all' ? '所有会话 · 已选' : '所有会话'),
+          ),
+          h(
+            'div',
+            { style: styles.note },
+            '当前会话：' + current + (preset === null ? '（读不到预设时按所有会话处理）' : ''),
+          ),
+        )
+      }
+
       function FeaturesPanel({ ctx, slotProps }) {
         const [open, setOpen] = React.useState(false)
         const [pos, setPos] = React.useState(null)
@@ -3423,6 +4213,7 @@ window.__ModuleLoader__.load({
                       newSession ? '已开启 · 点击关闭' : '已关闭 · 点击开启',
                     ),
                   ),
+                  h(AskScopeSection, null),
                   h(ShortcutsSection, { ctx }),
                   panelNote !== null ? h('div', { style: styles.ok, padding: '0 2px' }, panelNote) : null,
                   h('div', { style: styles.note }, '以后的新功能都会加到这个面板里。'),
@@ -3444,12 +4235,13 @@ window.__ModuleLoader__.load({
     })(require)
 
     return {
-      inject: ['slots'],
+      inject: ['slots', 'sessions', 'uiConversation', 'workspaces'],
       apply(ctx) {
         wrongbook.apply(ctx)
         knowledge.apply(ctx)
         review.apply(ctx)
         composer.apply(ctx)
+        askselect.apply(ctx)
       },
     }
   },
