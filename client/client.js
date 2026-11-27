@@ -2873,6 +2873,89 @@ window.__ModuleLoader__.load({
         return rangeAt(map, at, target.length)
       }
 
+      const escapeHtml = (text) =>
+        String(text).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch])
+
+      /** 行内标记：先转义再上标签，只认代码、加粗、斜体三种。 */
+      const inlineMd = (text) =>
+        escapeHtml(text)
+          .replace(/`([^`]+)`/g, '<code class="askq-inline">$1</code>')
+          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+          .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>')
+
+      /**
+       * 把助手回复渲染进卡片。dsh-ui 卡片在浮窗里没法渲染，整段剥掉并留一句说明，
+       * 免得那一大串 JSON 被当成正文。
+       */
+      const renderAnswer = (host, text) => {
+        const raw = String(text || '')
+        const withoutUi = raw.replace(/```dsh-ui[\s\S]*?```/g, '').trim()
+        const droppedUi = withoutUi.length !== raw.trim().length
+        host.textContent = ''
+        const lines = withoutUi.split('\n')
+        let i = 0
+        while (i < lines.length) {
+          const line = lines[i]
+          const fence = /^\s*```(.*)$/.exec(line)
+          if (fence) {
+            const buffer = []
+            i += 1
+            while (i < lines.length && !/^\s*```/.test(lines[i])) {
+              buffer.push(lines[i])
+              i += 1
+            }
+            i += 1
+            const pre = document.createElement('pre')
+            pre.className = 'askq-code'
+            pre.textContent = buffer.join('\n')
+            host.appendChild(pre)
+            continue
+          }
+          if (!line.trim()) {
+            i += 1
+            continue
+          }
+          const heading = /^(#{1,4})\s+(.*)$/.exec(line)
+          if (heading) {
+            const node = document.createElement('div')
+            node.className = 'askq-h' + heading[1].length
+            node.innerHTML = inlineMd(heading[2])
+            host.appendChild(node)
+            i += 1
+            continue
+          }
+          const bullet = /^\s*([-*+]|\d+\.)\s+(.*)$/.exec(line)
+          if (bullet) {
+            const node = document.createElement('div')
+            node.className = 'askq-li'
+            node.innerHTML = '<span class="askq-dot">•</span>' + inlineMd(bullet[2])
+            host.appendChild(node)
+            i += 1
+            continue
+          }
+          const quote = /^>\s?(.*)$/.exec(line)
+          if (quote) {
+            const node = document.createElement('div')
+            node.className = 'askq-qline'
+            node.innerHTML = inlineMd(quote[1])
+            host.appendChild(node)
+            i += 1
+            continue
+          }
+          const para = document.createElement('div')
+          para.className = 'askq-p'
+          para.innerHTML = inlineMd(line)
+          host.appendChild(para)
+          i += 1
+        }
+        if (droppedUi) {
+          const note = document.createElement('div')
+          note.className = 'askq-note'
+          note.textContent = '（原回复里有一张交互卡片，浮窗里不显示）'
+          host.appendChild(note)
+        }
+      }
+
       const briefly = (text, max) => {
         const flat = String(text || '').replace(/\s+/g, ' ').trim()
         return flat.length > max ? flat.slice(0, max) + '…' : flat
@@ -2949,7 +3032,18 @@ window.__ModuleLoader__.load({
 .askq-card .quote{margin:10px 12px 0;padding:8px 10px;border-radius:8px;max-height:80px;overflow:auto;
   background:rgba(255,198,10,.10);border-left:3px solid rgba(232,170,0,.75);
   color:var(--text-2,#b9bfcd);font-size:12px}
-.askq-card .body{flex:1;overflow:auto;padding:12px;white-space:pre-wrap;word-break:break-word}
+.askq-card .body{flex:1;overflow:auto;padding:12px;line-height:1.65}
+.askq-card .askq-p{margin:0 0 8px}
+.askq-card .askq-h1,.askq-card .askq-h2{font-weight:600;margin:10px 0 6px}
+.askq-card .askq-h3,.askq-card .askq-h4{font-weight:600;margin:8px 0 4px;font-size:12.5px;color:var(--text-2,#b9bfcd)}
+.askq-card .askq-li{display:flex;gap:6px;margin:0 0 4px}
+.askq-card .askq-dot{color:var(--text-3,#8b93a3)}
+.askq-card .askq-qline{border-left:2px solid rgba(126,140,255,.5);padding-left:8px;margin:0 0 6px;color:var(--text-2,#b9bfcd)}
+.askq-card .askq-code{margin:6px 0;padding:8px 10px;border-radius:6px;background:rgba(0,0,0,.32);
+  font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre;overflow:auto}
+.askq-card .askq-inline{padding:0 4px;border-radius:4px;background:rgba(255,255,255,.10);
+  font:12px ui-monospace,Consolas,monospace}
+.askq-card .askq-note{margin-top:8px;font-size:11px;color:var(--text-3,#8b93a3)}
 .askq-card footer{display:flex;align-items:center;gap:8px;padding:8px 12px;
   border-top:1px solid rgba(255,255,255,.10);font-size:11px;color:var(--text-3,#8b93a3)}
 .askq-card footer .grow{flex:1}
@@ -3447,7 +3541,7 @@ window.__ModuleLoader__.load({
             },
             text(value) {
               if (disposed) return
-              body.textContent = value || ''
+              renderAnswer(body, value)
               body.scrollTop = body.scrollHeight
             },
             status(value) {
