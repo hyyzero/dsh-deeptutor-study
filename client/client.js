@@ -30,6 +30,7 @@ window.__ModuleLoader__.load({
       const VALID = ['study', 'all']
       const listeners = new Set()
       let scope = 'study'
+      let askScopeActions = null
       let preset = null
       try {
         const raw = window.localStorage.getItem(KEY)
@@ -58,6 +59,12 @@ window.__ModuleLoader__.load({
           emit()
         },
         preset: () => preset,
+        /** 「功能」面板登记进来的输入框句柄，合并回答优先用它。 */
+        actions: null,
+        setActions(value) {
+          if (value) askScopeActions = value
+        },
+        getActions: () => askScopeActions,
         setPreset(value) {
           if (preset === value) return
           preset = value
@@ -3124,6 +3131,7 @@ window.__ModuleLoader__.load({
           if (active.length) reg.set(HL_PENDING, new Highlight(...active))
           else reg.delete(HL_PENDING)
           if (!fab.hidden) refreshFab()
+          syncStage()
         }
 
         const schedulePaint = () => {
@@ -3134,6 +3142,7 @@ window.__ModuleLoader__.load({
         ctx.effect(() => {
           const observer = new MutationObserver(() => {
             if (!fab.hidden) refreshFab()
+            syncStage()
             schedulePaint()
           })
           observer.observe(document.body, { childList: true, subtree: true, characterData: true })
@@ -3513,18 +3522,34 @@ window.__ModuleLoader__.load({
         const sessionBinding = (id) => (id ? ctx.sessions.binding(id) : null)
 
         async function askHere(text) {
-          // 先走输入框：这是 dsh-markup 送批注的方式，消息由输入框正常发出。
-          const actions = inputActions
+          // 一级：输入框句柄（dsh-markup 走的也是这条路）。
+          const actions = askScope.getActions() || inputActions
           if (actions && typeof actions.setDraft === 'function' && typeof actions.submit === 'function') {
-            actions.setDraft(text)
-            actions.submit()
-            return
+            try {
+              actions.setDraft(text)
+              actions.submit()
+              return
+            } catch {
+              /* 落到下一级 */
+            }
           }
+          // 二级：直接向会话投递。
           const binding = sessionBinding(sessionId)
           const session = binding && binding.session
-          if (!session || typeof session.prompt !== 'function') throw new Error('当前会话不可用')
-          const result = await session.prompt([{ type: 'text', text }], 'queue')
-          if (result && result.ok === false) throw new Error('发送失败：' + (result.error?.code || 'unknown'))
+          if (session && typeof session.prompt === 'function') {
+            try {
+              const result = await session.prompt([{ type: 'text', text }], 'queue')
+              if (!result || result.ok !== false) return
+            } catch {
+              /* 落到下一级 */
+            }
+          }
+          // 三级：至少把内容放进输入框，别让点击白费。
+          if (actions && typeof actions.setDraft === 'function') {
+            actions.setDraft(text)
+            throw new Error('没能自动发送，内容已放进输入框，按回车即可')
+          }
+          throw new Error('当前会话不可用，也没拿到输入框')
         }
 
         async function retire(child) {
@@ -3686,7 +3711,8 @@ window.__ModuleLoader__.load({
 
         /* ------------------------------------------------- 攒批注 */
 
-        const stageKey = () => 'dsh-ask:stage:v1:' + (sessionId || 'anonymous')
+        const STAGE_KEY = 'dsh-ask:stage:v2'
+        const stageKey = () => STAGE_KEY
 
         const saveStage = () => {
           try {
@@ -3719,16 +3745,16 @@ window.__ModuleLoader__.load({
             .join('\n')
 
         /** 按 dsh-markup 的批注格式拼一条消息。 */
-        const composeStaged = () => {
+        const composeStaged = (items, note) => {
           const head =
             '【我有疑问】我把你上一条回复当材料，标了 ' +
-            staged.length +
+            items.length +
             ' 处想问的地方。请按编号逐条回答，每条以「问题 N：」开头，不要合并，也不要遗漏。'
-          const blocks = staged.map((item, i) =>
+          const blocks = items.map((item, i) =>
             ['批注 ' + (i + 1) + '｜疑问', quoteBlock(item.quote), '问题：' + item.note].join('\n'),
           )
           const parts = [head, ...blocks]
-          if (overall.trim()) parts.push('整体补充：' + overall.trim())
+          if (String(note || '').trim()) parts.push('整体补充：' + String(note).trim())
           return parts.join('\n\n') + '\n【/我有疑问】'
         }
 
@@ -3753,14 +3779,29 @@ window.__ModuleLoader__.load({
           'ask-select: stage bar',
         )
 
+        /** 只属于当前会话：对应消息行还在文档里的那些。 */
+        const visibleStaged = () => staged.filter((item) => !!rowElement(item.rowKey))
+
+        let lastVisibleKey = ''
+
+        /** 条目归属变了（切会话、消息重渲染）就重画一次栏。 */
+        const syncStage = () => {
+          const key = visibleStaged()
+            .map((item) => item.id)
+            .join(',')
+          if (key !== lastVisibleKey) renderStage()
+        }
+
         const renderStage = () => {
-          const count = staged.length
-          stageBar.hidden = count === 0 && !overall.trim()
-          stageBar.style.display = stageBar.hidden ? 'none' : 'flex'
+          const items = visibleStaged()
+          const count = items.length
+          lastVisibleKey = items.map((item) => item.id).join(',')
+          stageBar.hidden = count === 0
+          stageBar.style.display = count === 0 ? 'none' : 'flex'
           stageCount.textContent = String(count)
           stageBar.querySelector('[data-act="send"]').textContent = count > 0 ? '一起发送（' + count + '）' : '一起发送'
           stageRows.textContent = ''
-          staged.forEach((item, i) => {
+          items.forEach((item, i) => {
             const row = document.createElement('div')
             row.className = 'row'
             const badge = document.createElement('span')
@@ -3815,9 +3856,11 @@ window.__ModuleLoader__.load({
 
         /** 一起发送：拼一条消息走输入框，同 dsh-markup。 */
         async function sendStaged() {
-          if (staged.length === 0 && !overall.trim()) return
-          const text = composeStaged()
-          staged = []
+          const items = visibleStaged()
+          if (items.length === 0) return
+          const text = composeStaged(items, overall)
+          const sentIds = new Set(items.map((item) => item.id))
+          staged = staged.filter((item) => !sentIds.has(item.id))
           overall = ''
           overallInput.value = ''
           saveStage()
@@ -4516,6 +4559,11 @@ window.__ModuleLoader__.load({
             }),
           [],
         )
+
+        // 面板能直接拿到输入框句柄，登记给「选段提问」共用。
+        React.useEffect(() => {
+          if (slotProps && slotProps.inputActions) askScope.setActions(slotProps.inputActions)
+        }, [slotProps])
 
         const pick = (value) => {
           askScope.set(value)
