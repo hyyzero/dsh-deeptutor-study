@@ -3064,6 +3064,28 @@ window.__ModuleLoader__.load({
           'ask-select: dom',
         )
 
+        /** 失败时把原因写在屏幕底部，别让用户只看到「没反应」。 */
+        const diagnose = (text) => {
+          let bar = document.getElementById('askq-diag')
+          if (!bar) {
+            bar = document.createElement('div')
+            bar.id = 'askq-diag'
+            bar.setAttribute(UI_ATTR, 'diag')
+            bar.style.cssText =
+              'position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483000;padding:10px 12px;' +
+              'border-radius:8px;border:1px solid #ff8b8b;background:#2a1d1f;color:#ffd7d7;' +
+              'font:12px/1.5 system-ui,sans-serif;white-space:pre-wrap;box-shadow:0 8px 24px rgba(0,0,0,.4)'
+            bar.addEventListener('click', () => bar.remove())
+            document.body.appendChild(bar)
+          }
+          bar.textContent = '选段提问：' + text + '（点这条可关闭）'
+        }
+
+        /** 这一次按下是否落在浮条上。 */
+        let fabPressed = false
+        let pressedAt = 0
+        /** 最近一次选好的那一段，点按钮时用它，不依赖 captured 是否还在。 */
+        let lastPassage = null
         /** 待确认的那一段：只记「哪一行 + 原文 + 第几次出现」，不存 Range。 */
         let captured = null
         let sessionId = null
@@ -3165,9 +3187,28 @@ window.__ModuleLoader__.load({
         }
 
         /** 按下就收：空白处一点，浮条与面板立刻消失。 */
+        /** 坐标是否落在浮条矩形内：覆盖层挡住时事件目标不是我们，但坐标仍然算数。 */
+        const inFab = (event) => {
+          if (fab.hidden) return false
+          const box = fab.getBoundingClientRect()
+          if (!box.width || !box.height) return false
+          return (
+            event.clientX >= box.left &&
+            event.clientX <= box.right &&
+            event.clientY >= box.top &&
+            event.clientY <= box.bottom
+          )
+        }
+
         const onMouseDown = (event) => {
           changesSinceDown = 0
+          if (inFab(event)) {
+            fabPressed = true
+            pressedAt = Date.now()
+            return
+          }
           if (event.target instanceof Element && event.target.closest('[' + UI_ATTR + ']')) return
+          fabPressed = false
           hideAll()
         }
 
@@ -3183,6 +3224,13 @@ window.__ModuleLoader__.load({
          */
         const onMouseUp = (event) => {
           if (event.button !== 0) return
+          if (fabPressed) {
+            fabPressed = false
+            if (inFab(event) || Date.now() - pressedAt < 1200) {
+              openPanel(captured || lastPassage)
+              return
+            }
+          }
           if (event.target instanceof Element && event.target.closest('[' + UI_ATTR + ']')) return
           const changes = changesSinceDown
           window.setTimeout(() => {
@@ -3201,6 +3249,7 @@ window.__ModuleLoader__.load({
               return
             }
             captured = found
+            lastPassage = found
             const range = anchorRange()
             if (!range) {
               hideFab()
@@ -3249,31 +3298,72 @@ window.__ModuleLoader__.load({
         )
 
         fab.addEventListener('mousedown', (event) => event.preventDefault())
-        fab.addEventListener('click', () => {
-          if (!captured) return
-          const passage = { rowKey: captured.rowKey, quote: captured.quote, index: captured.index }
-          const range = rangeFor(passage)
-          hideFab()
-          quoteBox.textContent = briefly(passage.quote, 400)
-          input.value = ''
-          errorBox.style.display = 'none'
-          panel.hidden = false
-          panel.style.display = ''
-          if (range) {
-            const rects = range.getClientRects()
-            const last = rects[rects.length - 1] || range.getBoundingClientRect()
-            panel.style.left =
-              Math.round(Math.min(Math.max(8, last.left), Math.max(8, window.innerWidth - panel.offsetWidth - 8))) +
-              'px'
-            panel.style.top =
-              Math.round(Math.min(last.bottom + 10, window.innerHeight - panel.offsetHeight - 12)) + 'px'
-          } else {
-            panel.style.left = Math.round(Math.max(8, (window.innerWidth - panel.offsetWidth) / 2)) + 'px'
-            panel.style.top = '120px'
+        let openedAt = 0
+        /** 打开提问面板。所有失败都会在屏幕上留一条状态条，不再静默。 */
+        const openPanel = (passage) => {
+          if (!passage) {
+            diagnose('没有拿到待提问的段落（选区可能在点击时被清掉了）')
+            return
           }
-          pending = passage
-          schedulePaint()
-          input.focus()
+          try {
+            const range = rangeFor(passage)
+            if (!panel.isConnected) document.body.appendChild(panel)
+            quoteBox.textContent = briefly(passage.quote, 400)
+            input.value = ''
+            errorBox.style.display = 'none'
+            panel.hidden = false
+            panel.style.display = 'block'
+            const width = panel.offsetWidth || 380
+            const height = panel.offsetHeight || 220
+            let left = Math.max(8, (window.innerWidth - width) / 2)
+            let top = Math.max(8, (window.innerHeight - height) / 2)
+            if (range) {
+              const rects = range.getClientRects()
+              const last = rects[rects.length - 1] || range.getBoundingClientRect()
+              if (last && (last.width || last.height)) {
+                left = Math.min(Math.max(8, last.left), Math.max(8, window.innerWidth - width - 8))
+                top = Math.min(Math.max(8, last.bottom + 10), Math.max(8, window.innerHeight - height - 8))
+              }
+            }
+            panel.style.left = Math.round(left) + 'px'
+            panel.style.top = Math.round(top) + 'px'
+            pending = passage
+            schedulePaint()
+            hideFab()
+            const box = panel.getBoundingClientRect()
+            const style = getComputedStyle(panel)
+            if (box.width === 0 || box.height === 0 || style.display === 'none' || style.visibility === 'hidden') {
+              panel.style.left = '40px'
+              panel.style.top = '40px'
+              const again = panel.getBoundingClientRect()
+              if (again.width === 0 || again.height === 0) {
+                diagnose(
+                  '面板已建立但量不出尺寸：display=' +
+                    style.display +
+                    '，尺寸=' +
+                    Math.round(again.width) +
+                    '×' +
+                    Math.round(again.height) +
+                    '，父节点=' +
+                    (panel.parentNode && panel.parentNode.nodeName),
+                )
+              }
+            }
+            input.focus()
+          } catch (error) {
+            diagnose('打开面板时出错：' + (error && error.message ? error.message : String(error)))
+          }
+        
+          openedAt = Date.now()
+        }
+
+        fab.addEventListener('mousedown', (event) => event.preventDefault())
+        fab.addEventListener('click', (event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          // 松手时可能已经打开过，这里只做兜底
+          if (Date.now() - openedAt < 500) return
+          openPanel(captured || lastPassage)
         })
 
         panel.querySelector('[data-act="cancel"]').addEventListener('click', () => {
