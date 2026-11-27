@@ -3267,12 +3267,14 @@ window.__ModuleLoader__.load({
         const place = (element, range) => {
           const rects = range.getClientRects()
           const last = rects[rects.length - 1] || range.getBoundingClientRect()
-          const width = element.offsetWidth
-          const height = element.offsetHeight
-          const preferred = last.right - width
-          const left = Math.min(Math.max(8, preferred), Math.max(8, window.innerWidth - width - 8))
-          let top = last.top - height - 8
-          if (top < 8) top = last.bottom + 8
+          const width = element.offsetWidth || 108
+          const height = element.offsetHeight || 30
+          // 优先贴在这行末尾的右边，右边放不下就翻到左边，再不行就压在行尾内部。
+          let left = last.right + 8
+          if (left + width > window.innerWidth - 8) left = last.left - width - 8
+          if (left < 8) left = Math.min(Math.max(8, last.right - width), Math.max(8, window.innerWidth - width - 8))
+          let top = last.top + (last.height - height) / 2
+          top = Math.min(Math.max(8, top), Math.max(8, window.innerHeight - height - 8))
           element.style.left = Math.round(left) + 'px'
           element.style.top = Math.round(top) + 'px'
         }
@@ -3324,28 +3326,30 @@ window.__ModuleLoader__.load({
 
         /** 按下就收：空白处一点，浮条与面板立刻消失。 */
         /** 坐标是否落在浮条矩形内：覆盖层挡住时事件目标不是我们，但坐标仍然算数。 */
-        const inFab = (event) => {
+        const inFab = (event, margin) => {
           if (fab.hidden) return false
           const box = fab.getBoundingClientRect()
           if (!box.width || !box.height) return false
+          const slack = margin || 0
           return (
-            event.clientX >= box.left &&
-            event.clientX <= box.right &&
-            event.clientY >= box.top &&
-            event.clientY <= box.bottom
+            event.clientX >= box.left - slack &&
+            event.clientX <= box.right + slack &&
+            event.clientY >= box.top - slack &&
+            event.clientY <= box.bottom + slack
           )
         }
 
         const onMouseDown = (event) => {
           changesSinceDown = 0
-          if (inFab(event)) {
+          if (inFab(event, 12)) {
             fabPressed = true
             pressedAt = Date.now()
             return
           }
           if (event.target instanceof Element && event.target.closest('[' + UI_ATTR + ']')) return
           fabPressed = false
-          hideAll()
+          // 只收面板；浮条等鼠标抬起再决定，否则 click 会被提前隐藏掉。
+          hidePanel()
         }
 
         const onSelectionChange = () => {
@@ -3360,12 +3364,11 @@ window.__ModuleLoader__.load({
          */
         const onMouseUp = (event) => {
           if (event.button !== 0) return
-          if (fabPressed) {
+          const onOurUi = event.target instanceof Element && !!event.target.closest('[' + UI_ATTR + ']')
+          if (fabPressed || onOurUi) {
             fabPressed = false
-            if (inFab(event) || Date.now() - pressedAt < 1200) {
-              openPanel(captured || lastPassage)
-              return
-            }
+            openPanel(captured || lastPassage)
+            return
           }
           if (event.target instanceof Element && event.target.closest('[' + UI_ATTR + ']')) return
           const changes = changesSinceDown
