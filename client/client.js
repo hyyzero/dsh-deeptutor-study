@@ -2915,6 +2915,7 @@ window.__ModuleLoader__.load({
       const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
       const STYLE = `
+.askq-fab[hidden],.askq-panel[hidden],.askq-card[hidden]{display:none !important}
 .askq-fab,.askq-panel,.askq-card{position:fixed;z-index:2147482000;box-sizing:border-box;
   font:13px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
   color:var(--text-1,#e8eaf0);background:var(--surface-2,#20242c);
@@ -3006,7 +3007,10 @@ window.__ModuleLoader__.load({
         }
 
         ctx.effect(() => {
-          const observer = new MutationObserver(schedulePaint)
+          const observer = new MutationObserver(() => {
+            if (!fab.hidden) refreshFab()
+            schedulePaint()
+          })
           observer.observe(document.body, { childList: true, subtree: true, characterData: true })
           window.addEventListener('resize', schedulePaint)
           return () => {
@@ -3028,6 +3032,7 @@ window.__ModuleLoader__.load({
         fab.className = 'askq-fab'
         fab.setAttribute(UI_ATTR, 'fab')
         fab.innerHTML = '<span class="dot"></span>我有疑问'
+        fab.title = '选中回复里的一段文字后提问（v2：按下即收、滚动跟随）'
         fab.hidden = true
         document.body.appendChild(fab)
 
@@ -3068,14 +3073,17 @@ window.__ModuleLoader__.load({
         let changesSinceDown = 0
         let scrollFrame = 0
 
+        /** 两个开关一起关：hidden 属性 + 内联 display，免得被别的样式盖回来。 */
         const hideFab = () => {
           fab.hidden = true
+          fab.style.display = 'none'
           captured = null
         }
 
         const hidePanel = () => {
           const wasOpen = !panel.hidden
           panel.hidden = true
+          panel.style.display = 'none'
           errorBox.style.display = 'none'
           errorBox.textContent = ''
           if (wasOpen) {
@@ -3199,6 +3207,7 @@ window.__ModuleLoader__.load({
             }
             place(fab, range)
             fab.hidden = false
+            fab.style.display = ''
           }, 0)
         }
 
@@ -3208,12 +3217,9 @@ window.__ModuleLoader__.load({
         }
 
         /** 滚动时按帧重算位置，浮条跟着那段文字走，不再钉在视口上。 */
+        /** 滚动时立刻重算：place() 只重算一条 Range 和两个样式，不必等下一帧。 */
         const followAnchor = () => {
-          if (scrollFrame) return
-          scrollFrame = requestAnimationFrame(() => {
-            scrollFrame = 0
-            refreshFab()
-          })
+          refreshFab()
         }
 
         document.addEventListener('mousedown', onMouseDown, true)
@@ -3221,6 +3227,8 @@ window.__ModuleLoader__.load({
         document.addEventListener('selectionchange', onSelectionChange)
         document.addEventListener('keydown', onKeyDown)
         document.addEventListener('scroll', followAnchor, true)
+        document.addEventListener('wheel', followAnchor, { passive: true, capture: true })
+        document.addEventListener('touchmove', followAnchor, { passive: true, capture: true })
         window.addEventListener('resize', followAnchor)
         window.addEventListener('blur', hideAll)
         ctx.effect(
@@ -3230,6 +3238,8 @@ window.__ModuleLoader__.load({
             document.removeEventListener('selectionchange', onSelectionChange)
             document.removeEventListener('keydown', onKeyDown)
             document.removeEventListener('scroll', followAnchor, true)
+            document.removeEventListener('wheel', followAnchor, true)
+            document.removeEventListener('touchmove', followAnchor, true)
             window.removeEventListener('resize', followAnchor)
             window.removeEventListener('blur', hideAll)
             if (scrollFrame) cancelAnimationFrame(scrollFrame)
