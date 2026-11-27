@@ -1144,6 +1144,8 @@ window.__ModuleLoader__.load({
         setupDone: '准备完成。重启 DSH 后生效。',
         setupFailed: '准备失败，展开日志看原因。',
         docsButton: '文档',
+        openFolder: '文件夹',
+        rawPathLabel: '放文档的目录',
         review: '温习',
         reviewEmpty: '这个库还没索引，先放文档再点「建索引」。',
         reviewHint: '已请求用「{kb}」温习；提示词已复制到剪贴板 —— 输入框没自动填上就 Ctrl+V 再回车。',
@@ -1216,6 +1218,8 @@ window.__ModuleLoader__.load({
         setupDone: 'Done. Restart DSH to pick it up.',
         setupFailed: 'Preparation failed; expand the log for the reason.',
         docsButton: 'Files',
+        openFolder: 'Folder',
+        rawPathLabel: 'Documents folder',
         review: 'Review',
         reviewEmpty: 'This base has no index yet — add documents and press Index first.',
         reviewHint: 'Review request for “{kb}” is ready; the prompt is on your clipboard — paste it if the composer stays empty.',
@@ -2052,6 +2056,9 @@ window.__ModuleLoader__.load({
                 item.docs === null || item.docs === undefined ? t('noDocs') : `${t('docs', { count: String(item.docs) })}${item.chunks ? ` · ${t('chunks', { count: String(item.chunks) })}` : ''}`,
                 item.model ? ` · ${item.model}` : '',
               ),
+              item.rawPath
+                ? h('div', { style: styles.meta }, `${t('rawPathLabel')}: ${item.rawPath}`)
+                : null,
             ),
             h(
               'div',
@@ -2112,6 +2119,11 @@ window.__ModuleLoader__.load({
                   onClick: () => loadDocs(item.name),
                 },
                 t('docsButton'),
+              ),
+              h(
+                'button',
+                { type: 'button', style: styles.ghost, onClick: () => post({ action: 'openFolder', name: item.name }) },
+                t('openFolder'),
               ),
               isRenaming
                 ? [
