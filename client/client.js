@@ -2997,6 +2997,7 @@ window.__ModuleLoader__.load({
           else reg.delete(HL_DONE)
           if (active) reg.set(HL_PENDING, new Highlight(active))
           else reg.delete(HL_PENDING)
+          if (!fab.hidden) refreshFab()
         }
 
         const schedulePaint = () => {
@@ -3058,15 +3059,18 @@ window.__ModuleLoader__.load({
           'ask-select: dom',
         )
 
+        /** 待确认的那一段：只记「哪一行 + 原文 + 第几次出现」，不存 Range。 */
         let captured = null
         let sessionId = null
         let sideCard = null
         let sideChild = null
-        /** 这一次按下鼠标后，选区有没有真的变过。 */
-        let selectionMoved = false
+        /** 这次按下鼠标之后，选区变化了几次。为 0 说明只是点了一下。 */
+        let changesSinceDown = 0
+        let scrollFrame = 0
 
         const hideFab = () => {
           fab.hidden = true
+          captured = null
         }
 
         const hidePanel = () => {
@@ -3078,6 +3082,11 @@ window.__ModuleLoader__.load({
             pending = null
             schedulePaint()
           }
+        }
+
+        const hideAll = () => {
+          hideFab()
+          hidePanel()
         }
 
         const showError = (text) => {
@@ -3102,49 +3111,78 @@ window.__ModuleLoader__.load({
           element.style.top = Math.round(top) + 'px'
         }
 
-        /** 选区落在正文里、且有内容，才算一次可以提问的选择。 */
+        /** 由「行 + 原文 + 序号」重新算一条活的 Range；那一行没了就返回 null。 */
+        const anchorRange = () => (captured ? rangeFor(captured) : null)
+
+        /** 浮条跟着锚点走；锚点没了、或者已经滚出视口，就收掉。 */
+        const refreshFab = () => {
+          if (fab.hidden) return
+          const range = anchorRange()
+          if (!range) {
+            hideFab()
+            return
+          }
+          const rect = range.getBoundingClientRect()
+          if (rect.bottom < -40 || rect.top > window.innerHeight + 40) {
+            hideFab()
+            return
+          }
+          place(fab, range)
+        }
+
+        /** 选区落在正文里、节点还在文档里、且有内容，才算一次可以提问的选择。 */
         const capture = () => {
           const selection = window.getSelection()
           if (!selection || selection.isCollapsed || selection.rangeCount === 0) return null
           const range = selection.getRangeAt(0)
+          if (!range.startContainer.isConnected || !range.endContainer.isConnected) return null
           if (!proseOf(range.startContainer) || !proseOf(range.endContainer)) return null
           const rowKey = rowKeyOf(range.startContainer)
           if (!rowKey) return null
           const quote = selection.toString().trim()
           if (!quote) return null
           const row = rowElement(rowKey)
+          if (!row || !row.contains(range.commonAncestorContainer)) return null
           let index = 0
-          if (row) {
-            const { flat } = flatten(row)
-            const target = quote.replace(/\s+/g, '')
-            const offset = flatOffsetOf(row, range.startContainer, range.startOffset)
-            const starts = startsOf(flat, target)
-            if (starts.length > 0 && offset >= 0) {
-              let pick = 0
-              for (let i = 0; i < starts.length; i++) if (starts[i] <= offset) pick = i
-              index = pick
-            }
+          const { flat } = flatten(row)
+          const target = quote.replace(/\s+/g, '')
+          const offset = flatOffsetOf(row, range.startContainer, range.startOffset)
+          const starts = startsOf(flat, target)
+          if (starts.length > 0 && offset >= 0) {
+            let pick = 0
+            for (let i = 0; i < starts.length; i++) if (starts[i] <= offset) pick = i
+            index = pick
           }
-          return { quote, rowKey, index, range: range.cloneRange() }
+          return { quote, rowKey, index }
         }
 
+        /** 按下就收：空白处一点，浮条与面板立刻消失。 */
         const onMouseDown = (event) => {
-          selectionMoved = false
+          changesSinceDown = 0
           if (event.target instanceof Element && event.target.closest('[' + UI_ATTR + ']')) return
-          hidePanel()
+          hideAll()
         }
 
         const onSelectionChange = () => {
-          selectionMoved = true
+          changesSinceDown += 1
           const selection = window.getSelection()
           if (!selection || selection.isCollapsed) hideFab()
         }
 
+        /**
+         * 只有「这次按下之后选区真的变过」才显示。点一下空白不动选区，
+         * 浮条不会再冒出来——这是之前它一直挂着的主要原因。
+         */
         const onMouseUp = (event) => {
           if (event.button !== 0) return
           if (event.target instanceof Element && event.target.closest('[' + UI_ATTR + ']')) return
+          const changes = changesSinceDown
           window.setTimeout(() => {
-            if (!selectionMoved) {
+            if (changes === 0) {
+              hideFab()
+              return
+            }
+            if (!askScope.allows()) {
               hideFab()
               return
             }
@@ -3153,47 +3191,48 @@ window.__ModuleLoader__.load({
               hideFab()
               return
             }
-            if (!askScope.allows()) {
+            captured = found
+            const range = anchorRange()
+            if (!range) {
               hideFab()
               return
             }
-            captured = found
-            place(fab, found.range)
+            place(fab, range)
             fab.hidden = false
           }, 0)
         }
 
         const onKeyDown = (event) => {
           if (event.key !== 'Escape') return
-          hideFab()
-          hidePanel()
+          hideAll()
         }
 
-        const onScroll = () => {
-          if (fab.hidden || !captured) return
-          const rect = captured.range.getBoundingClientRect()
-          if (rect.width === 0 && rect.height === 0) {
-            hideFab()
-            return
-          }
-          if (rect.bottom < 0 || rect.top > window.innerHeight) hideFab()
-          else place(fab, captured.range)
+        /** 滚动时按帧重算位置，浮条跟着那段文字走，不再钉在视口上。 */
+        const followAnchor = () => {
+          if (scrollFrame) return
+          scrollFrame = requestAnimationFrame(() => {
+            scrollFrame = 0
+            refreshFab()
+          })
         }
 
         document.addEventListener('mousedown', onMouseDown, true)
         document.addEventListener('mouseup', onMouseUp)
         document.addEventListener('selectionchange', onSelectionChange)
         document.addEventListener('keydown', onKeyDown)
-        document.addEventListener('scroll', onScroll, true)
-        window.addEventListener('resize', onScroll)
+        document.addEventListener('scroll', followAnchor, true)
+        window.addEventListener('resize', followAnchor)
+        window.addEventListener('blur', hideAll)
         ctx.effect(
           () => () => {
             document.removeEventListener('mousedown', onMouseDown, true)
             document.removeEventListener('mouseup', onMouseUp)
             document.removeEventListener('selectionchange', onSelectionChange)
             document.removeEventListener('keydown', onKeyDown)
-            document.removeEventListener('scroll', onScroll, true)
-            window.removeEventListener('resize', onScroll)
+            document.removeEventListener('scroll', followAnchor, true)
+            window.removeEventListener('resize', followAnchor)
+            window.removeEventListener('blur', hideAll)
+            if (scrollFrame) cancelAnimationFrame(scrollFrame)
           },
           'ask-select: listeners',
         )
@@ -3201,18 +3240,26 @@ window.__ModuleLoader__.load({
         fab.addEventListener('mousedown', (event) => event.preventDefault())
         fab.addEventListener('click', () => {
           if (!captured) return
+          const passage = { rowKey: captured.rowKey, quote: captured.quote, index: captured.index }
+          const range = rangeFor(passage)
           hideFab()
-          quoteBox.textContent = briefly(captured.quote, 400)
+          quoteBox.textContent = briefly(passage.quote, 400)
           input.value = ''
           errorBox.style.display = 'none'
           panel.hidden = false
-          const rects = captured.range.getClientRects()
-          const last = rects[rects.length - 1] || captured.range.getBoundingClientRect()
-          panel.style.left =
-            Math.round(Math.min(Math.max(8, last.left), Math.max(8, window.innerWidth - panel.offsetWidth - 8))) + 'px'
-          panel.style.top =
-            Math.round(Math.min(last.bottom + 10, window.innerHeight - panel.offsetHeight - 12)) + 'px'
-          pending = { rowKey: captured.rowKey, quote: captured.quote, index: captured.index }
+          if (range) {
+            const rects = range.getClientRects()
+            const last = rects[rects.length - 1] || range.getBoundingClientRect()
+            panel.style.left =
+              Math.round(Math.min(Math.max(8, last.left), Math.max(8, window.innerWidth - panel.offsetWidth - 8))) +
+              'px'
+            panel.style.top =
+              Math.round(Math.min(last.bottom + 10, window.innerHeight - panel.offsetHeight - 12)) + 'px'
+          } else {
+            panel.style.left = Math.round(Math.max(8, (window.innerWidth - panel.offsetWidth) / 2)) + 'px'
+            panel.style.top = '120px'
+          }
+          pending = passage
           schedulePaint()
           input.focus()
         })
