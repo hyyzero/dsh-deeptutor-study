@@ -2882,7 +2882,7 @@ window.__ModuleLoader__.load({
 
       const composeQuestion = (quote, question) =>
         [
-          '关于上面这段内容：',
+          '【我有疑问】',
           String(quote || '')
             .split('\n')
             .map((line) => '> ' + line)
@@ -2929,7 +2929,8 @@ window.__ModuleLoader__.load({
 .askq-quote{padding:8px 10px;margin-bottom:10px;border-radius:8px;max-height:96px;overflow:auto;
   background:rgba(255,198,10,.10);border-left:3px solid rgba(232,170,0,.75);
   color:var(--text-2,#b9bfcd)}
-.askq-input{width:100%;min-height:74px;resize:vertical;padding:8px 10px;border-radius:8px;
+.askq-panel *,.askq-card *{box-sizing:border-box}
+.askq-input{width:100%;max-width:100%;min-height:74px;resize:vertical;padding:8px 10px;border-radius:8px;
   border:1px solid rgba(255,255,255,.16);background:rgba(0,0,0,.24);color:inherit;
   font:inherit;outline:none}
 .askq-input:focus{border-color:rgba(126,140,255,.85)}
@@ -3091,6 +3092,8 @@ window.__ModuleLoader__.load({
         let sessionId = null
         let sideCard = null
         let sideChild = null
+        /** 输入框操作句柄，来自 dock 槽位；合并回答优先走它。 */
+        let inputActions = null
         /** 这次按下鼠标之后，选区变化了几次。为 0 说明只是点了一下。 */
         let changesSinceDown = 0
         let scrollFrame = 0
@@ -3386,6 +3389,13 @@ window.__ModuleLoader__.load({
         const sessionBinding = (id) => (id ? ctx.sessions.binding(id) : null)
 
         async function askHere(text) {
+          // 先走输入框：这是 dsh-markup 送批注的方式，消息由输入框正常发出。
+          const actions = inputActions
+          if (actions && typeof actions.setDraft === 'function' && typeof actions.submit === 'function') {
+            actions.setDraft(text)
+            actions.submit()
+            return
+          }
           const binding = sessionBinding(sessionId)
           const session = binding && binding.session
           if (!session || typeof session.prompt !== 'function') throw new Error('当前会话不可用')
@@ -3510,14 +3520,19 @@ window.__ModuleLoader__.load({
         }
 
         async function submit(mode) {
-          if (!captured) return
+          // openPanel 里已经 hideFab()，captured 会是 null；这里读面板自己的锚点。
+          const passage = pending || captured
+          if (!passage) {
+            showError('这一步没拿到选中的文字，请重新选一次。')
+            return
+          }
           const question = input.value.trim()
           if (!question) {
             input.focus()
             showError('先写一句你想问什么。')
             return
           }
-          const { quote, rowKey, index } = captured
+          const { quote, rowKey, index } = passage
           const text = composeQuestion(quote, question)
           marked.push({ rowKey, quote, index })
           if (marked.length > MAX_MARKED) marked.splice(0, marked.length - MAX_MARKED)
@@ -3565,7 +3580,10 @@ window.__ModuleLoader__.load({
         }
 
         /* dock 槽位是拿到当前会话 id 的官方位置，顺便把模式同步给选择器。 */
-        const SessionProbe = () => null
+        const SessionProbe = (props) => {
+          if (props && props.inputActions) inputActions = props.inputActions
+          return null
+        }
         ctx.slots.inject('conversation.input.dock', () =>
           ctx.slots.register(
             {
