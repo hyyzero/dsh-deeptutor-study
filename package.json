@@ -1,6 +1,6 @@
 {
   "name": "dsh-deeptutor-study",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": false,
   "type": "module",
   "description": "把 DeepTutor 变成 DSH 的学习模式（本地增强版：空库、文件夹管理、温习页、总结入库、错题本美化）",
