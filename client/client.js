@@ -3081,6 +3081,8 @@ window.__ModuleLoader__.load({
 `
 
       function apply(ctx) {
+        // 这个功能只活在浏览器里；在 Node 里加载（例如仓库自带的探针）时直接跳过。
+        if (typeof document === 'undefined' || typeof window === 'undefined') return
         /**
          * 这三个服务来自 DSH 客户端运行时。用 ctx.inject 等它们就绪：万一某个服务
          * 没提供，只有「选段提问」不出现，不会把插件里其他面板一起拖下水。
