@@ -4555,7 +4555,43 @@ window.__ModuleLoader__.load({
         editor.dispatchEvent(new InputEvent('input', { bubbles: true, data: prompt, inputType: 'insertText' }))
       }
 
+      /** 面板里任何一节渲染出错，都不要把整个「功能」按钮一起带走。 */
+      class PanelBoundary extends React.Component {
+        constructor(props) {
+          super(props)
+          this.state = { error: null }
+        }
+        static getDerivedStateFromError(error) {
+          return { error }
+        }
+        componentDidCatch(error) {
+          try {
+            console.error('[dsh-deeptutor-study] 功能面板渲染失败：', error)
+          } catch {
+            /* 控制台不可用就算了 */
+          }
+        }
+        render() {
+          if (this.state.error) {
+            return h(
+              'div',
+              { style: { ...styles.note, color: '#ff8b8b' } },
+              '面板内容加载失败：' + String((this.state.error && this.state.error.message) || this.state.error),
+            )
+          }
+          return this.props.children
+        }
+      }
+
       function AskScopeSection() {
+        try {
+          return renderAskScopeSection()
+        } catch (error) {
+          return h('div', { style: styles.note }, '选段提问设置加载失败：' + String((error && error.message) || error))
+        }
+      }
+
+      function renderAskScopeSection() {
         const [scope, setScope] = React.useState(() => askScope.get())
         const [preset, setPreset] = React.useState(() => askScope.preset())
 
@@ -4706,7 +4742,7 @@ window.__ModuleLoader__.load({
                 h(
                   'div',
                   { style: styles.panelBody },
-                  h(DigestSection, null),
+                  h(PanelBoundary, null, h(DigestSection, null)),
                   h(SetupSection, null),
                   h(
                     Section,
@@ -4731,8 +4767,7 @@ window.__ModuleLoader__.load({
                       newSession ? '已开启 · 点击关闭' : '已关闭 · 点击开启',
                     ),
                   ),
-                  h(AskScopeSection, null),
-                  h(ShortcutsSection, { ctx }),
+                  h(PanelBoundary, null, h(AskScopeSection, null), h(ShortcutsSection, { ctx })),
                   panelNote !== null ? h('div', { style: styles.ok, padding: '0 2px' }, panelNote) : null,
                   h('div', { style: styles.note }, '以后的新功能都会加到这个面板里。'),
                 ),
