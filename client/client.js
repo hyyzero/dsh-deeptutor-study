@@ -4556,7 +4556,17 @@ window.__ModuleLoader__.load({
       }
 
       /** 面板里任何一节渲染出错，都不要把整个「功能」按钮一起带走。 */
-      class PanelBoundary extends React.Component {
+      // 有的环境（例如仓库自带探针的 React 桩）没有 Component，降级成一个空基类。
+      const BoundaryBase =
+        React && typeof React.Component === 'function'
+          ? React.Component
+          : class {
+              constructor(props) {
+                this.props = props
+              }
+            }
+
+      class PanelBoundary extends BoundaryBase {
         constructor(props) {
           super(props)
           this.state = { error: null }
@@ -4779,7 +4789,28 @@ window.__ModuleLoader__.load({
       return {
         inject: ['slots'],
         apply(ctx) {
-          const Chip = (props) => h(FeaturesPanel, { ctx, slotProps: props })
+          // chip 本身也包一层边界：真出错时显示一行红字，而不是按钮凭空消失。
+          const ChipBoundary = class extends BoundaryBase {
+            constructor(props) {
+              super(props)
+              this.state = { error: null }
+            }
+            static getDerivedStateFromError(error) {
+              return { error }
+            }
+            render() {
+              if (this.state.error) {
+                return h(
+                  'span',
+                  { style: { fontSize: 11, color: '#ff8b8b' }, title: String(this.state.error && this.state.error.message) },
+                  '功能面板出错',
+                )
+              }
+              return this.props.children
+            }
+          }
+
+          const Chip = (props) => h(ChipBoundary, null, h(FeaturesPanel, { ctx, slotProps: props }))
           ctx.slots.inject('conversation.input.right', () =>
             ctx.slots.register({ name: 'conversation.input.right', id: 'deeptutor-features', order: 60 }, Chip),
           )
