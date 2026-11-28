@@ -4661,12 +4661,24 @@ window.__ModuleLoader__.load({
         const [open, setOpen] = React.useState(false)
         const [pos, setPos] = React.useState(null)
         const [newSession, setNewSession] = React.useState(() => readNewSession())
+        // 「选段提问」的作用范围直接挂在面板上，少一层子组件，避免整节渲染失败
+        const [scopeNow, setScopeNow] = React.useState(() => askScope.get())
+        const [presetNow, setPresetNow] = React.useState(() => askScope.preset())
         const [panelNote, setPanelNote] = React.useState(null)
         const anchor = React.useRef(null)
 
         // A 「温习」 click in the knowledge-base page asks the composer to take a
         // prompt: either into the current draft (inputActions) or, when the
         // experimental switch is on, into a freshly created conversation.
+        React.useEffect(
+          () =>
+            askScope.subscribe(() => {
+              setScopeNow(askScope.get())
+              setPresetNow(askScope.preset())
+            }),
+          [],
+        )
+
         React.useEffect(() => {
           const insertHere = (prompt) => {
             const actions = slotProps && slotProps.inputActions
@@ -4777,7 +4789,51 @@ window.__ModuleLoader__.load({
                       newSession ? '已开启 · 点击关闭' : '已关闭 · 点击开启',
                     ),
                   ),
-                  h(PanelBoundary, null, h(AskScopeSection, null), h(ShortcutsSection, { ctx })),
+                  h(
+                    Section,
+                    { title: '选段提问', status: scopeNow === 'all' ? '所有会话' : '仅学习模式' },
+                    h(
+                      'div',
+                      { style: styles.note },
+                      '选中回复里的一段文字，浮条上会出现「我有疑问」，可以攒多条一起发，也可以开旁路会话单独回答。',
+                    ),
+                    h(
+                      'div',
+                      { style: { display: 'flex', gap: 8, flexWrap: 'wrap' } },
+                      h(
+                        'button',
+                        {
+                          type: 'button',
+                          style: { ...styles.ghost, ...(scopeNow === 'study' ? styles.toggleOn : null), alignSelf: 'flex-start' },
+                          onClick: () => {
+                            askScope.set('study')
+                            setScopeNow(askScope.get())
+                          },
+                        },
+                        scopeNow === 'study' ? '仅学习模式 · 已选' : '仅学习模式',
+                      ),
+                      h(
+                        'button',
+                        {
+                          type: 'button',
+                          style: { ...styles.ghost, ...(scopeNow === 'all' ? styles.toggleOn : null), alignSelf: 'flex-start' },
+                          onClick: () => {
+                            askScope.set('all')
+                            setScopeNow(askScope.get())
+                          },
+                        },
+                        scopeNow === 'all' ? '所有会话 · 已选' : '所有会话',
+                      ),
+                    ),
+                    h(
+                      'div',
+                      { style: styles.note },
+                      '当前会话：' +
+                        (presetNow === null ? '未识别' : presetNow === 'study' ? '学习模式' : presetNow) +
+                        (presetNow === null ? '（读不到预设时按所有会话处理）' : ''),
+                    ),
+                  ),
+                  h(ShortcutsSection, { ctx }),
                   panelNote !== null ? h('div', { style: styles.ok, padding: '0 2px' }, panelNote) : null,
                   h('div', { style: styles.note }, '以后的新功能都会加到这个面板里。'),
                 ),
